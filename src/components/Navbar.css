@@ -1,0 +1,111 @@
+/* Navigation */
+.navbar {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: all var(--transition-base);
+}
+
+[data-theme="dark"] .navbar {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.navbar-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 60px;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: transform var(--transition-base);
+}
+
+.navbar-logo:hover {
+  transform: scale(1.02);
+}
+
+.navbar-logo img {
+  height: 150px;
+  width: auto;
+  max-width: 250px;
+  transition: all var(--transition-base);
+}
+
+[data-theme="dark"] .navbar-logo img {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) 
+          drop-shadow(0 0 16px rgba(255, 255, 255, 0.2));
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.navbar-link {
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  transition: all var(--transition-base);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.navbar-link:hover {
+  background: var(--bg-tertiary);
+  color: var(--primary);
+}
+
+.navbar-link-primary {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all var(--transition-base);
+  text-decoration: none;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar-link-primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navbar-container {
+    padding: 0.5rem 1rem;
+  }
+
+  .navbar-logo img {
+    height: 100px;
+    max-width: 200px;
+  }
+
+  .navbar-links {
+    gap: 1rem;
+  }
+
+  .navbar-link,
+  .navbar-link-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.813rem;
+  }
+}
+
