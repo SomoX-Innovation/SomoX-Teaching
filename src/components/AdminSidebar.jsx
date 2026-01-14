@@ -122,36 +122,16 @@ const AdminSidebar = () => {
 
           {/* Users Management */}
           <li>
-            <button
-              className={`nav-link ${isParentActive(['/admin/users']) ? 'active' : ''}`}
-              onClick={() => toggleSubmenu('users')}
+            <Link 
+              to="/admin/users" 
+              className={`nav-link ${isActive('/admin/users') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaUsers className="nav-icon" />
               </div>
               <span className="nav-text">Users</span>
-              <FaChevronDown className={`submenu-arrow ${openSubmenu === 'users' ? 'rotate' : ''}`} />
-            </button>
-            <ul className={`submenu ${openSubmenu === 'users' ? 'open' : ''}`}>
-              <li>
-                <Link to="/admin/users" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>All Users</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/users/students" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>Students</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/users/admins" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>Admins</span>
-                </Link>
-              </li>
-            </ul>
+              <div className="nav-indicator"></div>
+            </Link>
           </li>
 
           {/* Courses Management */}

@@ -10,13 +10,16 @@ import {
   FaSpinner,
   FaExternalLinkAlt
 } from 'react-icons/fa';
-import { recordingsService } from '../../services/firebaseService';
+import { recordingsService, usersService } from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
 import './MonthSessionRecordings.css';
 
 const MonthSessionRecordings = () => {
+  const { user } = useAuth();
   const { month } = useParams();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
+  const [userBatches, setUserBatches] = useState([]);
   const [stats, setStats] = useState({
     totalSessions: 0
   });
@@ -24,17 +27,46 @@ const MonthSessionRecordings = () => {
   const formattedMonth = month ? decodeURIComponent(month) : '';
 
   useEffect(() => {
-    if (formattedMonth) {
+    loadUserBatches();
+  }, [user]);
+
+  useEffect(() => {
+    if (formattedMonth && (userBatches.length > 0 || user?.role === 'admin')) {
       loadSessions();
     }
-  }, [formattedMonth]);
+  }, [formattedMonth, userBatches, user]);
+
+  const loadUserBatches = async () => {
+    if (!user?.uid) return;
+    try {
+      const userDoc = await usersService.getById(user.uid);
+      setUserBatches(userDoc.batchIds || []);
+    } catch (err) {
+      console.error('Error loading user batches:', err);
+      setUserBatches([]);
+    }
+  };
+
+  const hasAccessToRecording = (recording) => {
+    // Admins can see all recordings
+    if (user?.role === 'admin') return true;
+    
+    // If recording has no batchIds, it's accessible to all
+    if (!recording.batchIds || recording.batchIds.length === 0) return true;
+    
+    // Check if user's batches overlap with recording's batches
+    return userBatches.some(batchId => recording.batchIds.includes(batchId));
+  };
 
   const loadSessions = async () => {
     try {
       setLoading(true);
-      const recordings = await recordingsService.getByMonth(formattedMonth);
+      const allRecordings = await recordingsService.getByMonth(formattedMonth);
       
-      const sessionsList = recordings.map(recording => ({
+      // Filter recordings by batch access
+      const accessibleRecordings = allRecordings.filter(hasAccessToRecording);
+      
+      const sessionsList = accessibleRecordings.map(recording => ({
         id: recording.id,
         week: recording.week || 'Session',
         title: recording.title || `${formattedMonth}-${recording.week || 'Session'}`,

@@ -10,12 +10,15 @@ import {
   FaClock,
   FaSpinner
 } from 'react-icons/fa';
-import { recordingsService } from '../../services/firebaseService';
+import { recordingsService, usersService } from '../../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
 import './SessionRecordings.css';
 
 const SessionRecordings = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [months, setMonths] = useState([]);
+  const [userBatches, setUserBatches] = useState([]);
   const [stats, setStats] = useState({
     totalMonths: 0,
     available: 0,
@@ -23,17 +26,48 @@ const SessionRecordings = () => {
   });
 
   useEffect(() => {
-    loadRecordings();
-  }, []);
+    loadUserBatches();
+  }, [user]);
+
+  useEffect(() => {
+    if (userBatches.length > 0 || user?.role === 'admin') {
+      loadRecordings();
+    }
+  }, [userBatches, user]);
+
+  const loadUserBatches = async () => {
+    if (!user?.uid) return;
+    try {
+      const userDoc = await usersService.getById(user.uid);
+      setUserBatches(userDoc.batchIds || []);
+    } catch (err) {
+      console.error('Error loading user batches:', err);
+      setUserBatches([]);
+    }
+  };
+
+  const hasAccessToRecording = (recording) => {
+    // Admins can see all recordings
+    if (user?.role === 'admin') return true;
+    
+    // If recording has no batchIds, it's accessible to all
+    if (!recording.batchIds || recording.batchIds.length === 0) return true;
+    
+    // Check if user's batches overlap with recording's batches
+    return userBatches.some(batchId => recording.batchIds.includes(batchId));
+  };
 
   const loadRecordings = async () => {
     try {
       setLoading(true);
-      const recordings = await recordingsService.getAll();
+      const allRecordings = await recordingsService.getAll();
+      
+      // Filter recordings by batch access
+      const accessibleRecordings = allRecordings.filter(hasAccessToRecording);
       
       // Group recordings by month
       const monthMap = new Map();
-      recordings.forEach(recording => {
+      accessibleRecordings.forEach(recording => {
         if (recording.month) {
           if (!monthMap.has(recording.month)) {
             monthMap.set(recording.month, {

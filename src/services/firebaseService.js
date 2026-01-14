@@ -18,14 +18,23 @@ import { db } from '../config/firebase';
 // Generic CRUD operations
 export const createDocument = async (collectionName, data) => {
   try {
+    console.log(`Creating document in ${collectionName} collection with data:`, data);
+    
     const docRef = await addDoc(collection(db, collectionName), {
       ...data,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    
+    console.log(`Document created successfully in ${collectionName} with ID:`, docRef.id);
     return docRef.id;
   } catch (error) {
     console.error(`Error creating document in ${collectionName}:`, error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     throw error;
   }
 };
@@ -50,10 +59,13 @@ export const getDocuments = async (collectionName, filters = [], orderByField = 
     }
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const documents = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    console.log(`Loaded ${documents.length} documents from ${collectionName} collection`);
+    return documents;
   } catch (error) {
     console.error(`Error getting documents from ${collectionName}:`, error);
     throw error;
@@ -176,6 +188,17 @@ export const zoomSessionsService = {
   delete: (id) => deleteDocument('zoomSessions', id),
   getByStatus: (status) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: status }], { field: 'date', direction: 'asc' }),
   getUpcoming: () => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: 'upcoming' }], { field: 'date', direction: 'asc' })
+};
+
+// Batches Service
+export const batchesService = {
+  getAll: () => getDocuments('batches', [], { field: 'createdAt', direction: 'desc' }),
+  getById: (id) => getDocument('batches', id),
+  create: (batchData) => createDocument('batches', batchData),
+  update: (id, batchData) => updateDocument('batches', id, batchData),
+  delete: (id) => deleteDocument('batches', id),
+  getByCourse: (courseId) => getDocuments('batches', [{ field: 'courseId', operator: '==', value: courseId }], { field: 'number', direction: 'asc' }),
+  getByStatus: (status) => getDocuments('batches', [{ field: 'status', operator: '==', value: status }])
 };
 
 

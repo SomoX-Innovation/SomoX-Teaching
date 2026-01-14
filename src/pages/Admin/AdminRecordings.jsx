@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FaVideo, FaSearch, FaPlus, FaEdit, FaTrash, FaDownload, FaSpinner, FaCalendar } from 'react-icons/fa';
-import { recordingsService } from '../../services/firebaseService';
+import { recordingsService, batchesService } from '../../services/firebaseService';
 import './AdminRecordings.css';
 
 const AdminRecordings = () => {
@@ -12,6 +12,7 @@ const AdminRecordings = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
+  const [batches, setBatches] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -20,12 +21,23 @@ const AdminRecordings = () => {
     duration: '',
     videoUrl: '',
     topics: '',
-    status: 'active'
+    status: 'active',
+    batchIds: [] // Array of batch IDs that can access this recording
   });
 
   useEffect(() => {
     loadRecordings();
+    loadBatches();
   }, []);
+
+  const loadBatches = async () => {
+    try {
+      const data = await batchesService.getAll();
+      setBatches(data.filter(b => b.status === 'active')); // Only active batches
+    } catch (err) {
+      console.error('Error loading batches:', err);
+    }
+  };
 
   const loadRecordings = async () => {
     try {
@@ -54,11 +66,13 @@ const AdminRecordings = () => {
       const topicsArray = formData.topics.split(',').map(t => t.trim()).filter(t => t);
       await recordingsService.create({
         ...formData,
-        topics: topicsArray
+        topics: topicsArray,
+        batchIds: formData.batchIds || [] // Include batch IDs
       });
       await loadRecordings();
       setShowAddModal(false);
       resetForm();
+      alert('Recording created successfully!');
     } catch (err) {
       setError('Failed to create recording. Please try again.');
       console.error('Error creating recording:', err);
@@ -75,7 +89,8 @@ const AdminRecordings = () => {
       duration: recording.duration || '',
       videoUrl: recording.videoUrl || '',
       topics: Array.isArray(recording.topics) ? recording.topics.join(', ') : recording.topics || '',
-      status: recording.status || 'active'
+      status: recording.status || 'active',
+      batchIds: recording.batchIds || []
     });
     setShowEditModal(true);
   };
@@ -86,12 +101,14 @@ const AdminRecordings = () => {
       const topicsArray = formData.topics.split(',').map(t => t.trim()).filter(t => t);
       await recordingsService.update(selectedRecording.id, {
         ...formData,
-        topics: topicsArray
+        topics: topicsArray,
+        batchIds: formData.batchIds || []
       });
       await loadRecordings();
       setShowEditModal(false);
       setSelectedRecording(null);
       resetForm();
+      alert('Recording updated successfully!');
     } catch (err) {
       setError('Failed to update recording. Please try again.');
       console.error('Error updating recording:', err);
@@ -120,8 +137,32 @@ const AdminRecordings = () => {
       duration: '',
       videoUrl: '',
       topics: '',
-      status: 'active'
+      status: 'active',
+      batchIds: []
     });
+  };
+
+  const handleBatchToggle = (batchId) => {
+    const currentBatchIds = formData.batchIds || [];
+    if (currentBatchIds.includes(batchId)) {
+      setFormData({
+        ...formData,
+        batchIds: currentBatchIds.filter(id => id !== batchId)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        batchIds: [...currentBatchIds, batchId]
+      });
+    }
+  };
+
+  const getBatchNames = (batchIds) => {
+    if (!batchIds || batchIds.length === 0) return 'All batches';
+    return batchIds.map(id => {
+      const batch = batches.find(b => b.id === id);
+      return batch ? batch.number : 'Unknown';
+    }).join(', ');
   };
 
   const uniqueMonths = [...new Set(recordings.map(r => r.month).filter(Boolean))];
@@ -365,6 +406,100 @@ const AdminRecordings = () => {
                   placeholder="Topic 1, Topic 2, Topic 3"
                 />
               </div>
+              <div className="form-group">
+                <label>Batch Access (Select batches that can access this recording)</label>
+                <div style={{
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
+                  padding: '0.75rem',
+                  background: '#f9fafb'
+                }}>
+                  {batches.length === 0 ? (
+                    <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                      No active batches available. Create batches first.
+                    </div>
+                  ) : (
+                    <>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.5rem',
+                          cursor: 'pointer',
+                          borderRadius: '0.375rem',
+                          marginBottom: '0.25rem'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.batchIds?.length === 0 || formData.batchIds?.length === batches.length}
+                          onChange={() => {
+                            if (formData.batchIds?.length === batches.length) {
+                              setFormData({...formData, batchIds: []});
+                            } else {
+                              setFormData({...formData, batchIds: batches.map(b => b.id)});
+                            }
+                          }}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            cursor: 'pointer',
+                            accentColor: '#3b82f6'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '600' }}>
+                          All Batches
+                        </span>
+                      </label>
+                      <div style={{ height: '1px', background: '#e5e7eb', margin: '0.5rem 0' }} />
+                      {batches.map(batch => (
+                        <label
+                          key={batch.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.5rem',
+                            cursor: 'pointer',
+                            borderRadius: '0.375rem',
+                            marginBottom: '0.25rem'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.batchIds?.includes(batch.id) || false}
+                            onChange={() => handleBatchToggle(batch.id)}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer',
+                              accentColor: '#3b82f6'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                            {batch.number}
+                          </span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+                {formData.batchIds?.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                    Selected: {getBatchNames(formData.batchIds)}
+                  </div>
+                )}
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                  <strong>Note:</strong> If no batches are selected, the recording will be accessible to all students.
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
@@ -452,6 +587,100 @@ const AdminRecordings = () => {
                   value={formData.topics}
                   onChange={(e) => setFormData({...formData, topics: e.target.value})}
                 />
+              </div>
+              <div className="form-group">
+                <label>Batch Access (Select batches that can access this recording)</label>
+                <div style={{
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
+                  padding: '0.75rem',
+                  background: '#f9fafb'
+                }}>
+                  {batches.length === 0 ? (
+                    <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                      No active batches available. Create batches first.
+                    </div>
+                  ) : (
+                    <>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.5rem',
+                          cursor: 'pointer',
+                          borderRadius: '0.375rem',
+                          marginBottom: '0.25rem'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.batchIds?.length === 0 || formData.batchIds?.length === batches.length}
+                          onChange={() => {
+                            if (formData.batchIds?.length === batches.length) {
+                              setFormData({...formData, batchIds: []});
+                            } else {
+                              setFormData({...formData, batchIds: batches.map(b => b.id)});
+                            }
+                          }}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            cursor: 'pointer',
+                            accentColor: '#3b82f6'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '600' }}>
+                          All Batches
+                        </span>
+                      </label>
+                      <div style={{ height: '1px', background: '#e5e7eb', margin: '0.5rem 0' }} />
+                      {batches.map(batch => (
+                        <label
+                          key={batch.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.5rem',
+                            cursor: 'pointer',
+                            borderRadius: '0.375rem',
+                            marginBottom: '0.25rem'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.batchIds?.includes(batch.id) || false}
+                            onChange={() => handleBatchToggle(batch.id)}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer',
+                              accentColor: '#3b82f6'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                            {batch.number}
+                          </span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+                {formData.batchIds?.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                    Selected: {getBatchNames(formData.batchIds)}
+                  </div>
+                )}
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                  <strong>Note:</strong> If no batches are selected, the recording will be accessible to all students.
+                </div>
               </div>
             </div>
             <div className="modal-footer">

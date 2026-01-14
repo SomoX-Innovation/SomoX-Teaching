@@ -16,6 +16,7 @@ import AIAssistant from './pages/User/AIAssistant';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminUsers from './pages/Admin/AdminUsers';
 import AdminCourses from './pages/Admin/AdminCourses';
+import AdminBatches from './pages/Admin/AdminBatches';
 import AdminRecordings from './pages/Admin/AdminRecordings';
 import AdminTasks from './pages/Admin/AdminTasks';
 import AdminBlog from './pages/Admin/AdminBlog';
@@ -157,22 +158,6 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-              <Route 
-                path="/admin/users/students" 
-                element={
-                  <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <PlaceholderPage title="Students" description="Manage all students." />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/users/admins" 
-                element={
-                  <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <PlaceholderPage title="Admins" description="Manage administrators." />
-                  </ProtectedRoute>
-                } 
-              />
               
               {/* Admin Courses */}
               <Route 
@@ -195,7 +180,7 @@ function App() {
                 path="/admin/courses/batches" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <PlaceholderPage title="Batches" description="Manage course batches." />
+                    <AdminBatches />
                   </ProtectedRoute>
                 } 
               />
