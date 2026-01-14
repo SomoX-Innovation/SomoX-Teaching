@@ -777,12 +777,12 @@ const AdminUsers = () => {
             <div className="stat-label">Admins</div>
           </div>
           <div 
-            className={`users-stat-card ${filterStatus === 'active' && filterRole === 'student' ? 'active' : ''}`}
+            className={`users-stat-card ${filterStatus === 'active' && filterRole === 'all' ? 'active' : ''}`}
             onClick={() => {
               setFilterStatus('active');
-              setFilterRole('student'); // Keep student filter when clicking active
+              setFilterRole('all'); // Show both admin and student when clicking active
             }}
-            title="Show active students"
+            title="Show active users (both admin and student)"
             style={{ cursor: 'pointer', transition: 'all 0.2s' }}
             onMouseEnter={(e) => {
               if (filterStatus !== 'active' || filterRole !== 'all') {
