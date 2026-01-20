@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FaVideo, FaSearch, FaPlus, FaEdit, FaTrash, FaDownload, FaSpinner, FaCalendar } from 'react-icons/fa';
-import { recordingsService, batchesService } from '../../services/firebaseService';
+import { toast } from 'react-toastify';
+import { FaVideo, FaSearch, FaPlus, FaEdit, FaTrash, FaDownload, FaSpinner, FaCalendar, FaUsers, FaGraduationCap } from 'react-icons/fa';
+import { recordingsService, batchesService, coursesService } from '../../services/firebaseService';
 import './AdminRecordings.css';
 
 const AdminRecordings = () => {
@@ -9,10 +10,12 @@ const AdminRecordings = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [filterBatch, setFilterBatch] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [batches, setBatches] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -28,14 +31,24 @@ const AdminRecordings = () => {
   useEffect(() => {
     loadRecordings();
     loadBatches();
+    loadCourses();
   }, []);
 
   const loadBatches = async () => {
     try {
       const data = await batchesService.getAll();
-      setBatches(data.filter(b => b.status === 'active')); // Only active batches
+      setBatches(data || []); // Load ALL batches (not just active)
     } catch (err) {
       console.error('Error loading batches:', err);
+    }
+  };
+
+  const loadCourses = async () => {
+    try {
+      const data = await coursesService.getAll();
+      setCourses(data || []);
+    } catch (err) {
+      console.error('Error loading courses:', err);
     }
   };
 
@@ -57,12 +70,32 @@ const AdminRecordings = () => {
     const matchesSearch = recording.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recording.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMonth = filterMonth === 'all' || recording.month === filterMonth;
-    return matchesSearch && matchesMonth;
+    
+    // Batch filter: show all if 'all' selected
+    if (filterBatch === 'all') {
+      return matchesSearch && matchesMonth;
+    }
+    
+    // When a specific batch is selected, show recordings that:
+    // 1. Have the selected batch in their batchIds array, OR
+    // 2. Have no batchIds (accessible to all batches)
+    const hasBatchAccess = recording.batchIds && recording.batchIds.length > 0 
+      ? recording.batchIds.includes(filterBatch)
+      : true; // No batchIds means accessible to all batches
+    
+    return matchesSearch && matchesMonth && hasBatchAccess;
   });
 
   const handleAddRecording = async () => {
     try {
       setError(null);
+      
+      // Validate batch selection
+      if (!formData.batchIds || formData.batchIds.length === 0) {
+        setError('Please select at least one batch for this recording.');
+        return;
+      }
+      
       const topicsArray = formData.topics.split(',').map(t => t.trim()).filter(t => t);
       await recordingsService.create({
         ...formData,
@@ -72,7 +105,7 @@ const AdminRecordings = () => {
       await loadRecordings();
       setShowAddModal(false);
       resetForm();
-      alert('Recording created successfully!');
+      toast.success('Recording created successfully!');
     } catch (err) {
       setError('Failed to create recording. Please try again.');
       console.error('Error creating recording:', err);
@@ -108,7 +141,7 @@ const AdminRecordings = () => {
       setShowEditModal(false);
       setSelectedRecording(null);
       resetForm();
-      alert('Recording updated successfully!');
+      toast.success('Recording updated successfully!');
     } catch (err) {
       setError('Failed to update recording. Please try again.');
       console.error('Error updating recording:', err);
@@ -165,6 +198,21 @@ const AdminRecordings = () => {
     }).join(', ');
   };
 
+  const getCourseName = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    return course?.title || 'Unknown Course';
+  };
+
+  const handleBatchClick = (batchId) => {
+    // Reset form and pre-select the clicked batch
+    resetForm();
+    setFormData(prev => ({
+      ...prev,
+      batchIds: [batchId]
+    }));
+    setShowAddModal(true);
+  };
+
   const uniqueMonths = [...new Set(recordings.map(r => r.month).filter(Boolean))];
   const stats = {
     total: recordings.length,
@@ -202,7 +250,10 @@ const AdminRecordings = () => {
               <p className="admin-recordings-subtitle">Manage all session recordings and videos</p>
             </div>
           </div>
-          <button className="add-recording-btn" onClick={() => setShowAddModal(true)}>
+          <button className="add-recording-btn" onClick={() => {
+            resetForm();
+            setShowAddModal(true);
+          }}>
             <FaPlus className="btn-icon" />
             Upload Recording
           </button>
@@ -224,6 +275,137 @@ const AdminRecordings = () => {
           </div>
         </div>
 
+        {/* Batches List Section */}
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '1rem'
+          }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+              Batches
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              Click on a batch to add a recording
+            </p>
+          </div>
+          {batches.length === 0 ? (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              background: '#f9fafb', 
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb'
+            }}>
+              <FaUsers style={{ fontSize: '2rem', color: '#9ca3af', marginBottom: '0.5rem' }} />
+              <p style={{ color: '#6b7280' }}>No batches available. Create batches first.</p>
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
+              gap: '1rem' 
+            }}>
+              {batches.map(batch => {
+                const recordingCount = recordings.filter(r => 
+                  r.batchIds && r.batchIds.includes(batch.id)
+                ).length;
+                return (
+                  <div
+                    key={batch.id}
+                    onClick={() => handleBatchClick(batch.id)}
+                    style={{
+                      padding: '1.25rem',
+                      background: 'white',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '0.75rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#3b82f6';
+                      e.currentTarget.style.boxShadow = '0 4px 6px rgba(59, 130, 246, 0.1)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '0.5rem',
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '1.25rem'
+                      }}>
+                        <FaUsers />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          fontWeight: '600', 
+                          fontSize: '1rem', 
+                          color: '#111827',
+                          marginBottom: '0.25rem'
+                        }}>
+                          {batch.number}
+                        </div>
+                        <div style={{ 
+                          fontSize: '0.875rem', 
+                          color: '#6b7280',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <FaGraduationCap style={{ fontSize: '0.75rem' }} />
+                          {getCourseName(batch.courseId)}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      paddingTop: '0.75rem',
+                      borderTop: '1px solid #e5e7eb'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                          Recordings
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#3b82f6' }}>
+                          {recordingCount}
+                        </div>
+                      </div>
+                      <div style={{
+                        padding: '0.375rem 0.75rem',
+                        background: batch.status === 'active' ? '#dcfce7' : '#fee2e2',
+                        color: batch.status === 'active' ? '#166534' : '#991b1b',
+                        borderRadius: '0.375rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        textTransform: 'capitalize'
+                      }}>
+                        {batch.status || 'active'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Toolbar */}
         <div className="recordings-toolbar">
           <div className="search-box">
@@ -236,16 +418,28 @@ const AdminRecordings = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select 
-            className="filter-select"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-          >
-            <option value="all">All Months</option>
-            {uniqueMonths.map(month => (
-              <option key={month} value={month}>{month}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select 
+              className="filter-select"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+            >
+              <option value="all">All Months</option>
+              {uniqueMonths.map(month => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
+            <select 
+              className="filter-select"
+              value={filterBatch}
+              onChange={(e) => setFilterBatch(e.target.value)}
+            >
+              <option value="all">All Batches</option>
+              {batches.map(batch => (
+                <option key={batch.id} value={batch.id}>{batch.number}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Recordings List */}
@@ -256,10 +450,28 @@ const AdminRecordings = () => {
           </div>
         ) : (
           <div className="recordings-list">
+            {filterBatch !== 'all' && (
+              <div style={{ 
+                marginBottom: '1rem', 
+                padding: '0.75rem 1rem', 
+                background: '#eff6ff', 
+                border: '1px solid #bfdbfe', 
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                color: '#1e40af'
+              }}>
+                <strong>Filtering by Batch:</strong> {batches.find(b => b.id === filterBatch)?.number || 'Unknown'} 
+                {' '}• Showing {filteredRecordings.length} recording{filteredRecordings.length !== 1 ? 's' : ''}
+              </div>
+            )}
             {filteredRecordings.length === 0 ? (
               <div className="empty-state">
                 <FaVideo className="empty-icon" />
-                <p>No recordings found</p>
+                <p>
+                  {filterBatch !== 'all' 
+                    ? `No recordings found for batch "${batches.find(b => b.id === filterBatch)?.number || 'Unknown'}"`
+                    : 'No recordings found'}
+                </p>
               </div>
             ) : (
               filteredRecordings.map((recording) => (
@@ -302,6 +514,12 @@ const AdminRecordings = () => {
                   </div>
                   <div className="recording-card-body">
                     <p className="recording-description">{recording.description || 'No description'}</p>
+                    <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                      <strong style={{ fontSize: '0.875rem', color: '#6b7280' }}>Batches: </strong>
+                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                        {getBatchNames(recording.batchIds)}
+                      </span>
+                    </div>
                     {Array.isArray(recording.topics) && recording.topics.length > 0 && (
                       <div className="recording-topics">
                         <strong>Topics:</strong>
@@ -328,6 +546,23 @@ const AdminRecordings = () => {
               <h2>Upload New Recording</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
+            {formData.batchIds && formData.batchIds.length === 1 && (
+              <div style={{
+                margin: '0 1.5rem',
+                padding: '0.75rem 1rem',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                color: '#1e40af',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <FaUsers />
+                <strong>Adding recording for batch:</strong> {getBatchNames(formData.batchIds)}
+              </div>
+            )}
             <div className="modal-body">
               <div className="form-group">
                 <label>Title</label>
@@ -398,16 +633,7 @@ const AdminRecordings = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Topics (comma-separated)</label>
-                <input
-                  type="text"
-                  value={formData.topics}
-                  onChange={(e) => setFormData({...formData, topics: e.target.value})}
-                  placeholder="Topic 1, Topic 2, Topic 3"
-                />
-              </div>
-              <div className="form-group">
-                <label>Batch Access (Select batches that can access this recording)</label>
+                <label>Batch Access * (Select batches that can access this recording)</label>
                 <div style={{
                   maxHeight: '200px',
                   overflowY: 'auto',
@@ -418,7 +644,7 @@ const AdminRecordings = () => {
                 }}>
                   {batches.length === 0 ? (
                     <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                      No active batches available. Create batches first.
+                      No batches available. Create batches first.
                     </div>
                   ) : (
                     <>
@@ -497,8 +723,17 @@ const AdminRecordings = () => {
                   </div>
                 )}
                 <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                  <strong>Note:</strong> If no batches are selected, the recording will be accessible to all students.
+                  <strong>Note:</strong> Select one or more batches. If no batches are selected, the recording will be accessible to all students.
                 </div>
+              </div>
+              <div className="form-group">
+                <label>Topics (comma-separated)</label>
+                <input
+                  type="text"
+                  value={formData.topics}
+                  onChange={(e) => setFormData({...formData, topics: e.target.value})}
+                  placeholder="Topic 1, Topic 2, Topic 3"
+                />
               </div>
             </div>
             <div className="modal-footer">
@@ -589,7 +824,7 @@ const AdminRecordings = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Batch Access (Select batches that can access this recording)</label>
+                <label>Batch Access * (Select batches that can access this recording)</label>
                 <div style={{
                   maxHeight: '200px',
                   overflowY: 'auto',
@@ -600,7 +835,7 @@ const AdminRecordings = () => {
                 }}>
                   {batches.length === 0 ? (
                     <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                      No active batches available. Create batches first.
+                      No batches available. Create batches first.
                     </div>
                   ) : (
                     <>
@@ -679,7 +914,7 @@ const AdminRecordings = () => {
                   </div>
                 )}
                 <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                  <strong>Note:</strong> If no batches are selected, the recording will be accessible to all students.
+                  <strong>Note:</strong> Select one or more batches. If no batches are selected, the recording will be accessible to all students.
                 </div>
               </div>
             </div>

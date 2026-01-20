@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { FaGraduationCap, FaSearch, FaPlus, FaEdit, FaTrash, FaEye, FaUsers, FaSpinner } from 'react-icons/fa';
-import { coursesService } from '../../services/firebaseService';
+import { coursesService, usersService, batchesService } from '../../services/firebaseService';
 import './AdminCourses.css';
 
 const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,21 +25,48 @@ const AdminCourses = () => {
   });
 
   useEffect(() => {
-    loadCourses();
+    loadData();
   }, []);
 
-  const loadCourses = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await coursesService.getAll();
-      setCourses(data);
+      const [coursesData, usersData, batchesData] = await Promise.all([
+        coursesService.getAll(),
+        usersService.getAll(),
+        batchesService.getAll()
+      ]);
+      setCourses(coursesData);
+      setUsers(usersData || []);
+      setBatches(batchesData || []);
     } catch (err) {
-      setError('Failed to load courses. Please try again.');
-      console.error('Error loading courses:', err);
+      setError('Failed to load data. Please try again.');
+      console.error('Error loading data:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate student count for a course
+  const getStudentCountForCourse = (courseId) => {
+    // Find all batches that belong to this course
+    const courseBatches = batches.filter(batch => batch.courseId === courseId);
+    const batchIds = courseBatches.map(batch => batch.id);
+    
+    if (batchIds.length === 0) return 0;
+    
+    // Find all students who have any of these batch IDs
+    const students = users.filter(user => {
+      const role = user.role ? user.role.toLowerCase() : 'student';
+      if (role !== 'student') return false;
+      
+      // Check if user has any of the course's batch IDs
+      const userBatchIds = user.batchIds || [];
+      return userBatchIds.some(batchId => batchIds.includes(batchId));
+    });
+    
+    return students.length;
   };
 
   const filteredCourses = courses.filter(course => {
@@ -51,7 +80,7 @@ const AdminCourses = () => {
     try {
       setError(null);
       await coursesService.create(formData);
-      await loadCourses();
+      await loadData();
       setShowAddModal(false);
       resetForm();
     } catch (err) {
@@ -78,7 +107,7 @@ const AdminCourses = () => {
     try {
       setError(null);
       await coursesService.update(selectedCourse.id, formData);
-      await loadCourses();
+      await loadData();
       setShowEditModal(false);
       setSelectedCourse(null);
       resetForm();
@@ -93,7 +122,7 @@ const AdminCourses = () => {
       try {
         setError(null);
         await coursesService.delete(id);
-        await loadCourses();
+        await loadData();
       } catch (err) {
         setError('Failed to delete course. Please try again.');
         console.error('Error deleting course:', err);
@@ -117,7 +146,7 @@ const AdminCourses = () => {
     total: courses.length,
     active: courses.filter(c => c.status === 'active').length,
     draft: courses.filter(c => c.status === 'draft').length,
-    totalStudents: courses.reduce((sum, c) => sum + (c.students || 0), 0)
+    totalStudents: courses.reduce((sum, c) => sum + getStudentCountForCourse(c.id), 0)
   };
 
   return (
@@ -260,7 +289,7 @@ const AdminCourses = () => {
                       </div>
                       <div className="course-meta-item">
                         <FaUsers className="meta-icon" />
-                        <span>{course.students || 0} students</span>
+                        <span>{getStudentCountForCourse(course.id)} students</span>
                       </div>
                     </div>
                   </div>

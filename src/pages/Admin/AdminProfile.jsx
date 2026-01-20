@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import { FaUser, FaSave, FaSpinner } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import './AdminProfile.css';
@@ -26,7 +27,7 @@ const AdminProfile = () => {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      alert('Profile updated successfully!');
+      toast.success('Profile updated successfully!');
     }, 1000);
   };
 

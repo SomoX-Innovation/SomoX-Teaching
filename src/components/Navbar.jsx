@@ -12,7 +12,6 @@ const Navbar = ({ showSignIn = true }) => {
           <img src="/assets/logo.png" alt="Somox Learning" />
         </Link>
         <div className="navbar-links">
-          <Link to="/blog" className="navbar-link">Blog</Link>
           {showSignIn && (
             <Link to="/sign-in" className="navbar-link-primary">Sign In</Link>
           )}

@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
@@ -54,6 +56,18 @@ function App() {
       <AuthProvider>
         <Router>
           <Layout>
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+            />
             <Routes>
               {/* Public Pages */}
               <Route path="/" element={<Home />} />
@@ -168,16 +182,10 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              
+              {/* Admin Batches */}
               <Route 
-                path="/admin/courses/create" 
-                element={
-                  <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <PlaceholderPage title="Create Course" description="Create a new course." />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/courses/batches" 
+                path="/admin/batches" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <AdminBatches />
@@ -191,14 +199,6 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <AdminRecordings />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/recordings/upload" 
-                element={
-                  <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <PlaceholderPage title="Upload Recording" description="Upload a new recording." />
                   </ProtectedRoute>
                 } 
               />

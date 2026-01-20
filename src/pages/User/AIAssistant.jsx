@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { 
   FaHome, 
   FaChevronRight, 
@@ -8,19 +9,63 @@ import {
   FaLock,
   FaPaperPlane
 } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import { paymentsService } from '../../services/firebaseService';
 import UsageStatsModal from '../../components/UsageStatsModal';
 import './AIAssistant.css';
 
 const AIAssistant = () => {
+  const { user } = useAuth();
   const [message, setMessage] = useState('');
-  const [isPaymentRequired] = useState(true); // Set to false when payment is complete
+  const [isPaymentRequired, setIsPaymentRequired] = useState(true);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkPaymentStatus();
+  }, [user]);
+
+  const checkPaymentStatus = async () => {
+    if (!user?.uid || user?.role === 'admin') {
+      setIsPaymentRequired(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const payments = await paymentsService.getByUser(user.uid);
+      
+      // Check if current month is paid
+      const now = new Date();
+      const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+      const currentYear = now.getFullYear().toString();
+      
+      const hasPaid = payments.some(payment => {
+        return payment.status === 'completed' && 
+               payment.year === currentYear && 
+               payment.month === currentMonth;
+      });
+      
+      setIsPaymentRequired(!hasPaid);
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      setIsPaymentRequired(true); // Default to requiring payment on error
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!isPaymentRequired && message.trim()) {
+    if (isPaymentRequired) {
+      toast.warning('Payment required to use AI Assistant. Please complete payment for the current month.');
+      return;
+    }
+    
+    if (message.trim()) {
       // Handle sending message
       console.log('Sending:', message);
+      // TODO: Implement actual AI chat functionality
       setMessage('');
     }
   };
@@ -74,14 +119,18 @@ const AIAssistant = () => {
         </div>
 
         {/* Payment Warning Alert */}
-        {isPaymentRequired && (
+        {loading ? (
+          <div className="payment-warning-alert" style={{ background: '#eff6ff' }}>
+            <div className="warning-text">Checking payment status...</div>
+          </div>
+        ) : isPaymentRequired ? (
           <div className="payment-warning-alert">
             <FaLock className="warning-icon" />
             <div className="warning-text">
-              AI Assistant access requires payment completion for the current month.
+              AI Assistant access requires payment completion for the current month. Please contact the administrator to make a payment.
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Chat Area */}
         <div className="ai-chat-area">

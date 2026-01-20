@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { FaUsers, FaSearch, FaPlus, FaEdit, FaTrash, FaSpinner, FaGraduationCap } from 'react-icons/fa';
 import { batchesService, coursesService } from '../../services/firebaseService';
 import './AdminBatches.css';
@@ -96,7 +97,7 @@ const AdminBatches = () => {
       await loadData();
       setShowAddModal(false);
       resetForm();
-      alert('Batch created successfully!');
+      toast.success('Batch created successfully!');
     } catch (err) {
       setError(err.message || 'Failed to create batch. Please try again.');
       console.error('Error creating batch:', err);
@@ -134,7 +135,7 @@ const AdminBatches = () => {
       setShowEditModal(false);
       setSelectedBatch(null);
       resetForm();
-      alert('Batch updated successfully!');
+      toast.success('Batch updated successfully!');
     } catch (err) {
       setError(err.message || 'Failed to update batch. Please try again.');
       console.error('Error updating batch:', err);
@@ -147,7 +148,7 @@ const AdminBatches = () => {
         setError(null);
         await batchesService.delete(id);
         await loadData();
-        alert('Batch deleted successfully!');
+        toast.success('Batch deleted successfully!');
       } catch (err) {
         setError('Failed to delete batch. Please try again.');
         console.error('Error deleting batch:', err);

@@ -136,64 +136,44 @@ const AdminSidebar = () => {
 
           {/* Courses Management */}
           <li>
-            <button
-              className={`nav-link ${isParentActive(['/admin/courses']) ? 'active' : ''}`}
-              onClick={() => toggleSubmenu('courses')}
+            <Link 
+              to="/admin/courses" 
+              className={`nav-link ${isActive('/admin/courses') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaGraduationCap className="nav-icon" />
               </div>
               <span className="nav-text">Courses</span>
-              <FaChevronDown className={`submenu-arrow ${openSubmenu === 'courses' ? 'rotate' : ''}`} />
-            </button>
-            <ul className={`submenu ${openSubmenu === 'courses' ? 'open' : ''}`}>
-              <li>
-                <Link to="/admin/courses" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>All Courses</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/courses/create" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>Create Course</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/courses/batches" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>Batches</span>
-                </Link>
-              </li>
-            </ul>
+              <div className="nav-indicator"></div>
+            </Link>
+          </li>
+
+          {/* Batches Management */}
+          <li>
+            <Link 
+              to="/admin/batches" 
+              className={`nav-link ${isActive('/admin/batches') ? 'active' : ''}`}
+            >
+              <div className="nav-icon-wrapper">
+                <FaCalendar className="nav-icon" />
+              </div>
+              <span className="nav-text">Batches</span>
+              <div className="nav-indicator"></div>
+            </Link>
           </li>
 
           {/* Session Recordings */}
           <li>
-            <button
-              className={`nav-link ${isParentActive(['/admin/recordings']) ? 'active' : ''}`}
-              onClick={() => toggleSubmenu('recordings')}
+            <Link 
+              to="/admin/recordings" 
+              className={`nav-link ${isActive('/admin/recordings') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaVideo className="nav-icon" />
               </div>
               <span className="nav-text">Recordings</span>
-              <FaChevronDown className={`submenu-arrow ${openSubmenu === 'recordings' ? 'rotate' : ''}`} />
-            </button>
-            <ul className={`submenu ${openSubmenu === 'recordings' ? 'open' : ''}`}>
-              <li>
-                <Link to="/admin/recordings" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>All Recordings</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin/recordings/upload" className="submenu-link">
-                  <div className="submenu-dot"></div>
-                  <span>Upload Recording</span>
-                </Link>
-              </li>
-            </ul>
+              <div className="nav-indicator"></div>
+            </Link>
           </li>
 
           {/* Tasks Management */}

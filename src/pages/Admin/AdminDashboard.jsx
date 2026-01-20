@@ -35,25 +35,27 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [users, courses, recordings, tasks, blogPosts, payments] = await Promise.all([
-        usersService.getAll(),
-        coursesService.getAll(),
-        recordingsService.getAll(),
-        tasksService.getAll(),
-        blogService.getAll(),
-        paymentsService.getAll()
+      
+      // Use optimized count queries and only load payments for revenue calculation
+      const [usersCount, coursesCount, recordingsCount, tasksCount, blogPostsCount, completedPayments] = await Promise.all([
+        usersService.getCount().catch(() => 0),
+        coursesService.getCount().catch(() => 0),
+        recordingsService.getCount().catch(() => 0),
+        tasksService.getCount().catch(() => 0),
+        blogService.getCount().catch(() => 0),
+        // Only load completed payments for revenue calculation (much smaller dataset)
+        paymentsService.getByStatus('completed', 1000).catch(() => [])
       ]);
 
-      const revenue = payments
-        .filter(p => p.status === 'completed')
+      const revenue = completedPayments
         .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
       setStats({
-        users: users.length,
-        courses: courses.length,
-        recordings: recordings.length,
-        tasks: tasks.length,
-        blogPosts: blogPosts.length,
+        users: usersCount,
+        courses: coursesCount,
+        recordings: recordingsCount,
+        tasks: tasksCount,
+        blogPosts: blogPostsCount,
         revenue: revenue
       });
     } catch (err) {

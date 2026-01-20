@@ -18,21 +18,23 @@ import {
   FaSpinner
 } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
-import { blogService, recordingsService, usersService, tasksService, coursesService } from '../services/firebaseService';
+import { recordingsService, usersService, tasksService, batchesService } from '../services/firebaseService';
 import Navbar from '../components/Navbar';
 import './Home.css';
 
 const Home = () => {
   const { theme } = useTheme();
   const [currentFeature, setCurrentFeature] = useState(4); // Payment Management (index 4)
-  const [blogPosts, setBlogPosts] = useState([]);
   const [videos, setVideos] = useState([]);
-  const [stats, setStats] = useState({
-    students: 0,
-    recordings: 0,
-    tasks: 0,
-    batches: 0
-  });
+  // Mock values for display
+  const MOCK_STATS = {
+    students: 150,
+    recordings: 85,
+    tasks: 320,
+    batches: 12
+  };
+
+  const [stats, setStats] = useState(MOCK_STATS);
   const [loading, setLoading] = useState(true);
 
   const features = [
@@ -84,46 +86,68 @@ const Home = () => {
     loadHomeData();
   }, []);
 
+  // Debug: Log stats changes
+  useEffect(() => {
+    console.log('Stats state updated:', stats);
+  }, [stats]);
+
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      // Load published blog posts (limit to 3 for homepage)
-      const posts = await blogService.getPublished();
-      setBlogPosts(posts.slice(0, 3));
-
-      // Load recordings that have YouTube video IDs (for video section)
-      const allRecordings = await recordingsService.getActive();
-      const youtubeRecordings = allRecordings
-        .filter(r => r.youtubeVideoId || r.videoUrl?.includes('youtube.com') || r.videoUrl?.includes('youtu.be'))
-        .slice(0, 2)
-        .map(r => ({
-          id: r.id,
-          title: r.title || 'Session Recording',
-          description: r.description || '',
-          videoId: r.youtubeVideoId || extractYouTubeId(r.videoUrl),
-          duration: r.duration || 'N/A',
-          level: r.level || 'Beginner',
-          category: r.category || 'General',
-          views: r.views || '0'
-        }));
-      setVideos(youtubeRecordings);
-
-      // Load stats
-      const [users, recordings, tasks, courses] = await Promise.all([
-        usersService.getByRole('student'),
-        recordingsService.getAll(),
-        tasksService.getAll(),
-        coursesService.getAll()
+      
+      // Use optimized count queries instead of loading all documents
+      // Load all counts in parallel for better performance
+      const [studentsCount, recordingsCount, tasksCount, batchesCount] = await Promise.all([
+        usersService.getCountByRole('student').catch(() => 0),
+        recordingsService.getCount().catch(() => 0),
+        tasksService.getCount().catch(() => 0),
+        batchesService.getCount().catch(() => 0)
       ]);
 
-      setStats({
-        students: users.length,
-        recordings: recordings.length,
-        tasks: tasks.length,
-        batches: courses.length
-      });
+      console.log('✅ Stats loaded:', { studentsCount, recordingsCount, tasksCount, batchesCount });
+
+      // Use real data if available, otherwise use mock values
+      const statsData = {
+        students: studentsCount > 0 ? studentsCount : MOCK_STATS.students,
+        recordings: recordingsCount > 0 ? recordingsCount : MOCK_STATS.recordings,
+        tasks: tasksCount > 0 ? tasksCount : MOCK_STATS.tasks,
+        batches: batchesCount > 0 ? batchesCount : MOCK_STATS.batches
+      };
+
+      console.log('📊 Final stats:', statsData);
+      console.log('📊 Real counts:', { studentsCount, recordingsCount, tasksCount, batchesCount });
+      setStats(statsData);
+
+
+      // Load recordings that have YouTube video IDs (for video section)
+      // Only load first 10 active recordings, then filter client-side (much faster)
+      try {
+        const activeRecordings = await recordingsService.getActive(10);
+        const youtubeRecordings = (activeRecordings || [])
+          .filter(r => r.youtubeVideoId || r.videoUrl?.includes('youtube.com') || r.videoUrl?.includes('youtu.be'))
+          .slice(0, 2)
+          .map(r => ({
+            id: r.id,
+            title: r.title || 'Session Recording',
+            description: r.description || '',
+            videoId: r.youtubeVideoId || extractYouTubeId(r.videoUrl),
+            duration: r.duration || 'N/A',
+            level: r.level || 'Beginner',
+            category: r.category || 'General',
+            views: r.views || '0'
+          }));
+        setVideos(youtubeRecordings);
+        console.log('✅ Videos loaded:', youtubeRecordings.length);
+      } catch (error) {
+        console.error('❌ Error loading videos:', error);
+        setVideos([]);
+      }
+
     } catch (error) {
-      console.error('Error loading home data:', error);
+      console.error('❌ Critical error loading home data:', error);
+      // Use mock values on error
+      console.log('⚠️ Using mock stats due to error');
+      setStats(MOCK_STATS);
     } finally {
       setLoading(false);
     }
@@ -142,11 +166,12 @@ const Home = () => {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
+  // Create stats cards with real data
   const statsCards = [
-    { icon: '👥', value: `${stats.students}+`, label: 'Students', color: 'from-blue-500 to-purple-500', delay: '0s' },
-    { icon: '🎥', value: `${stats.recordings}+`, label: 'Session Recordings', color: 'from-green-500 to-blue-500', delay: '0.1s' },
-    { icon: '📋', value: `${stats.tasks}+`, label: 'Tasks', color: 'from-orange-500 to-red-500', delay: '0.2s' },
-    { icon: '🎓', value: `${stats.batches}+`, label: 'Batches', color: 'from-purple-500 to-pink-500', delay: '0.3s' }
+    { icon: '👥', value: `${stats.students || 0}+`, label: 'Students', color: 'from-blue-500 to-purple-500', delay: '0s' },
+    { icon: '🎥', value: `${stats.recordings || 0}+`, label: 'Session Recordings', color: 'from-green-500 to-blue-500', delay: '0.1s' },
+    { icon: '📋', value: `${stats.tasks || 0}+`, label: 'Tasks', color: 'from-orange-500 to-red-500', delay: '0.2s' },
+    { icon: '🎓', value: `${stats.batches || 0}+`, label: 'Batches', color: 'from-purple-500 to-pink-500', delay: '0.3s' }
   ];
 
   const nextFeature = () => {
@@ -306,17 +331,24 @@ const Home = () => {
               <h2 className="section-title gradient-text">LMS Statistics</h2>
               <p className="section-subtitle">See the impact of our learning platform in numbers</p>
 
-              <div className="stats-cards">
-                {statsCards.map((stat, index) => (
-                  <div key={index} className="stat-card" style={{ transitionDelay: stat.delay }}>
-                    <div className={`stat-gradient bg-gradient-to-br ${stat.color}`}></div>
-                    <div className="stat-icon">{stat.icon}</div>
-                    <div className="stat-value">{stat.value}</div>
-                    <div className="stat-label">{stat.label}</div>
-                    <div className={`stat-bar bg-gradient-to-r ${stat.color}`}></div>
-                  </div>
-                ))}
-              </div>
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <FaSpinner className="spinner" style={{ animation: 'spin 1s linear infinite', fontSize: '2rem', color: 'var(--primary)' }} />
+                  <p>Loading statistics...</p>
+                </div>
+              ) : (
+                <div className="stats-cards">
+                  {statsCards.map((stat, index) => (
+                    <div key={index} className="stat-card" style={{ transitionDelay: stat.delay }}>
+                      <div className={`stat-gradient bg-gradient-to-br ${stat.color}`}></div>
+                      <div className="stat-icon">{stat.icon}</div>
+                      <div className="stat-value">{stat.value}</div>
+                      <div className="stat-label">{stat.label}</div>
+                      <div className={`stat-bar bg-gradient-to-r ${stat.color}`}></div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="stats-cta">
@@ -339,60 +371,6 @@ const Home = () => {
                 </a>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Blog Section */}
-      <section className="blog-section">
-        <div className="section-container">
-          <h2 className="section-title">Latest from Our Blog</h2>
-          <p className="section-subtitle">
-            Stay updated with the latest insights, tutorials, and news from our learning management system
-          </p>
-
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem' }}>
-              <FaSpinner className="spinner" style={{ animation: 'spin 1s linear infinite', fontSize: '2rem', color: 'var(--primary)' }} />
-              <p>Loading blog posts...</p>
-            </div>
-          ) : (
-            <div className="blog-grid">
-              {blogPosts.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '2rem' }}>No blog posts available yet.</p>
-              ) : (
-                blogPosts.map((post) => (
-                  <article key={post.id} className="blog-post-card">
-                    <div className="blog-post-image">
-                      <img 
-                        src={post.image || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23e5e7eb"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%236b7280" font-size="20">No Image</text></svg>'} 
-                        alt={post.title}
-                        onError={(e) => {
-                          e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23e5e7eb"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%236b7280" font-size="20">No Image</text></svg>';
-                        }}
-                      />
-                    </div>
-                    <div className="blog-post-content">
-                      <h3 className="blog-post-title">{post.title}</h3>
-                      <p className="blog-post-excerpt">{post.excerpt || post.description || ''}</p>
-                      <div className="blog-post-meta">
-                        <span>{post.author || 'Unknown'}</span>
-                        <span>{formatDate(post.createdAt || post.date)}</span>
-                      </div>
-                      <button className="blog-post-btn">
-                        Read more <FaChevronRight />
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          )}
-
-          <div className="blog-cta">
-            <Link to="/blog" className="blog-cta-btn">
-              View All Blog Posts <FaChevronRight />
-            </Link>
           </div>
         </div>
       </section>

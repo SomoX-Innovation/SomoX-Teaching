@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import { FaCog, FaSave, FaSpinner } from 'react-icons/fa';
 import './AdminSettings.css';
 
@@ -27,7 +28,7 @@ const AdminSettings = () => {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      alert('Settings saved successfully!');
+      toast.success('Settings saved successfully!');
     }, 1000);
   };
 

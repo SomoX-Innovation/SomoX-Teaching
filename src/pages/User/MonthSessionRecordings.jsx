@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { 
   FaHome, 
   FaChevronRight, 
@@ -8,9 +9,11 @@ import {
   FaCheckCircle,
   FaList,
   FaSpinner,
-  FaExternalLinkAlt
+  FaExternalLinkAlt,
+  FaLock,
+  FaMoneyBillWave
 } from 'react-icons/fa';
-import { recordingsService, usersService } from '../../services/firebaseService';
+import { recordingsService, usersService, paymentsService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import './MonthSessionRecordings.css';
 
@@ -20,6 +23,8 @@ const MonthSessionRecordings = () => {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [userBatches, setUserBatches] = useState([]);
+  const [userPayments, setUserPayments] = useState([]);
+  const [hasAccess, setHasAccess] = useState(false);
   const [stats, setStats] = useState({
     totalSessions: 0
   });
@@ -28,13 +33,14 @@ const MonthSessionRecordings = () => {
 
   useEffect(() => {
     loadUserBatches();
+    loadUserPayments();
   }, [user]);
 
   useEffect(() => {
     if (formattedMonth && (userBatches.length > 0 || user?.role === 'admin')) {
-      loadSessions();
+      checkAccessAndLoadSessions();
     }
-  }, [formattedMonth, userBatches, user]);
+  }, [formattedMonth, userBatches, userPayments, user]);
 
   const loadUserBatches = async () => {
     if (!user?.uid) return;
@@ -44,6 +50,58 @@ const MonthSessionRecordings = () => {
     } catch (err) {
       console.error('Error loading user batches:', err);
       setUserBatches([]);
+    }
+  };
+
+  const loadUserPayments = async () => {
+    if (!user?.uid || user?.role === 'admin') return;
+    try {
+      const payments = await paymentsService.getByUser(user.uid);
+      setUserPayments(payments || []);
+    } catch (err) {
+      console.error('Error loading user payments:', err);
+      setUserPayments([]);
+    }
+  };
+
+  // Check if student has paid for this month
+  const checkPaymentForMonth = (monthString) => {
+    // Admins have access to all months
+    if (user?.role === 'admin') return true;
+    
+    // Extract year and month from "2025-November" format
+    const parts = monthString.split('-');
+    if (parts.length !== 2) return false;
+    
+    const year = parts[0];
+    const monthName = parts[1];
+    
+    // Convert month name to number (1-12)
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNumber = (monthNames.indexOf(monthName) + 1).toString().padStart(2, '0');
+    
+    // Check if there's a completed payment for this month/year
+    const hasPayment = userPayments.some(payment => {
+      if (payment.status !== 'completed') return false;
+      return payment.year === year && payment.month === monthNumber;
+    });
+    
+    return hasPayment;
+  };
+
+  const checkAccessAndLoadSessions = async () => {
+    if (!formattedMonth) return;
+    
+    // Check payment access first
+    const hasPaid = checkPaymentForMonth(formattedMonth);
+    setHasAccess(hasPaid);
+    
+    if (hasPaid || user?.role === 'admin') {
+      loadSessions();
+    } else {
+      setLoading(false);
+      setSessions([]);
     }
   };
 
@@ -61,6 +119,11 @@ const MonthSessionRecordings = () => {
   const loadSessions = async () => {
     try {
       setLoading(true);
+      
+      // Check payment access
+      const hasPaid = checkPaymentForMonth(formattedMonth);
+      setHasAccess(hasPaid);
+      
       const allRecordings = await recordingsService.getByMonth(formattedMonth);
       
       // Filter recordings by batch access
@@ -72,7 +135,7 @@ const MonthSessionRecordings = () => {
         title: recording.title || `${formattedMonth}-${recording.week || 'Session'}`,
         type: recording.type || 'Session Recording',
         status: recording.status || 'active',
-        readyToWatch: recording.status === 'active' && !!recording.videoUrl,
+        readyToWatch: (hasPaid || user?.role === 'admin') && recording.status === 'active' && !!recording.videoUrl,
         topics: Array.isArray(recording.topics) ? recording.topics : 
                (recording.topics ? recording.topics.split(',').map(t => t.trim()) : []),
         videoUrl: recording.videoUrl || recording.googleDriveLink || '', // Support both videoUrl and googleDriveLink
@@ -101,6 +164,12 @@ const MonthSessionRecordings = () => {
   };
 
   const handleWatchNow = (session) => {
+    // Double-check payment access before allowing watch
+    if (!hasAccess && user?.role !== 'admin') {
+      toast.warning('Payment required to access this recording. Please contact the administrator.');
+      return;
+    }
+    
     if (session.videoUrl) {
       // Open Google Drive link in new tab
       window.open(session.videoUrl, '_blank', 'noopener,noreferrer');
@@ -201,9 +270,37 @@ const MonthSessionRecordings = () => {
           </div>
         </div>
 
+        {/* Payment Required Message */}
+        {!hasAccess && user?.role !== 'admin' && (
+          <div style={{
+            padding: '2rem',
+            margin: '2rem 0',
+            background: '#fef2f2',
+            border: '2px solid #fecaca',
+            borderRadius: '0.75rem',
+            textAlign: 'center'
+          }}>
+            <FaLock style={{ fontSize: '3rem', color: '#ef4444', marginBottom: '1rem' }} />
+            <h3 style={{ fontSize: '1.5rem', color: '#991b1b', marginBottom: '0.5rem' }}>
+              Payment Required
+            </h3>
+            <p style={{ color: '#7f1d1d', fontSize: '1rem', marginBottom: '1rem' }}>
+              You need to complete payment for <strong>{formatMonthName(formattedMonth)}</strong> to access these recordings.
+            </p>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Please contact the administrator to make a payment for this month.
+            </p>
+          </div>
+        )}
+
         {/* Sessions Grid */}
         <div className="month-sessions-scroll">
-          {sessions.length === 0 ? (
+          {!hasAccess && user?.role !== 'admin' ? (
+            <div className="month-empty-state">
+              <FaLock className="empty-icon" style={{ color: '#ef4444' }} />
+              <p className="empty-message">Payment required to access recordings for this month.</p>
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="month-empty-state">
               <FaVideo className="empty-icon" />
               <p className="empty-message">No sessions available for this month.</p>

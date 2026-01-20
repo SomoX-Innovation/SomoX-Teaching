@@ -11,9 +11,45 @@ import {
   orderBy,
   limit,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  getCountFromServer,
+  startAfter
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+
+// Simple in-memory cache with TTL (Time To Live)
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCacheKey = (collectionName, filters, orderByField, limitCount) => {
+  return `${collectionName}_${JSON.stringify(filters)}_${JSON.stringify(orderByField)}_${limitCount}`;
+};
+
+const getCachedData = (key) => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  cache.delete(key);
+  return null;
+};
+
+const setCachedData = (key, data) => {
+  cache.set(key, { data, timestamp: Date.now() });
+};
+
+// Clear cache for a specific collection
+export const clearCache = (collectionName = null) => {
+  if (collectionName) {
+    for (const key of cache.keys()) {
+      if (key.startsWith(collectionName + '_')) {
+        cache.delete(key);
+      }
+    }
+  } else {
+    cache.clear();
+  }
+};
 
 // Generic CRUD operations
 export const createDocument = async (collectionName, data) => {
@@ -39,24 +75,68 @@ export const createDocument = async (collectionName, data) => {
   }
 };
 
-export const getDocuments = async (collectionName, filters = [], orderByField = null, limitCount = null) => {
+// Get count of documents (optimized - doesn't fetch all documents)
+export const getDocumentCount = async (collectionName, filters = []) => {
   try {
-    let q = collection(db, collectionName);
+    let q = query(collection(db, collectionName));
     
     // Apply filters
-    filters.forEach(filter => {
-      q = query(q, where(filter.field, filter.operator, filter.value));
-    });
-    
-    // Apply ordering
-    if (orderByField) {
-      q = query(q, orderBy(orderByField.field, orderByField.direction || 'asc'));
+    if (filters && filters.length > 0) {
+      filters.forEach(filter => {
+        q = query(q, where(filter.field, filter.operator, filter.value));
+      });
     }
     
-    // Apply limit
-    if (limitCount) {
-      q = query(q, limit(limitCount));
+    // Use getCountFromServer for efficient counting (Firebase v9+)
+    try {
+      const snapshot = await getCountFromServer(q);
+      return snapshot.data().count;
+    } catch (countError) {
+      // Fallback: if getCountFromServer is not available, use a limited query
+      console.warn('getCountFromServer not available, using fallback method');
+      const snapshot = await getDocs(q);
+      return snapshot.size;
     }
+  } catch (error) {
+    console.error(`Error getting document count from ${collectionName}:`, error);
+    return 0;
+  }
+};
+
+export const getDocuments = async (collectionName, filters = [], orderByField = null, limitCount = null, useCache = true) => {
+  try {
+    // Check cache first
+    const cacheKey = getCacheKey(collectionName, filters, orderByField, limitCount);
+    if (useCache) {
+      const cached = getCachedData(cacheKey);
+      if (cached) {
+        console.log(`✅ Loaded ${cached.length} documents from cache (${collectionName})`);
+        return cached;
+      }
+    }
+    
+    let q = query(collection(db, collectionName));
+    
+    // Apply filters
+    if (filters && filters.length > 0) {
+      filters.forEach(filter => {
+        q = query(q, where(filter.field, filter.operator, filter.value));
+      });
+    }
+    
+    // Apply ordering (with fallback if orderBy fails)
+    if (orderByField && orderByField.field) {
+      try {
+        q = query(q, orderBy(orderByField.field, orderByField.direction || 'asc'));
+      } catch (orderError) {
+        console.warn(`Could not apply orderBy for ${collectionName} on field ${orderByField.field}:`, orderError);
+        // Continue without ordering
+      }
+    }
+    
+    // Apply limit (default to 50 if no limit specified to prevent loading too much)
+    const finalLimit = limitCount || 50;
+    q = query(q, limit(finalLimit));
     
     const querySnapshot = await getDocs(q);
     const documents = querySnapshot.docs.map(doc => ({
@@ -64,10 +144,94 @@ export const getDocuments = async (collectionName, filters = [], orderByField = 
       ...doc.data()
     }));
     
-    console.log(`Loaded ${documents.length} documents from ${collectionName} collection`);
+    // Cache the results
+    if (useCache) {
+      setCachedData(cacheKey, documents);
+    }
+    
+    console.log(`✅ Loaded ${documents.length} documents from ${collectionName} collection`);
     return documents;
   } catch (error) {
-    console.error(`Error getting documents from ${collectionName}:`, error);
+    console.error(`❌ Error getting documents from ${collectionName}:`, error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      collection: collectionName,
+      filters: filters,
+      orderBy: orderByField
+    });
+    
+    // If orderBy fails, try without it
+    if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+      console.log(`⚠️ Retrying ${collectionName} without orderBy...`);
+      try {
+        let q = query(collection(db, collectionName));
+        if (filters && filters.length > 0) {
+          filters.forEach(filter => {
+            q = query(q, where(filter.field, filter.operator, filter.value));
+          });
+        }
+        const finalLimit = limitCount || 50;
+        q = query(q, limit(finalLimit));
+        const querySnapshot = await getDocs(q);
+        const documents = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log(`✅ Loaded ${documents.length} documents from ${collectionName} (without orderBy)`);
+        return documents;
+      } catch (retryError) {
+        console.error(`❌ Retry also failed for ${collectionName}:`, retryError);
+        throw retryError;
+      }
+    }
+    
+    throw error;
+  }
+};
+
+// Paginated query support
+export const getDocumentsPaginated = async (
+  collectionName, 
+  filters = [], 
+  orderByField = null, 
+  pageSize = 20,
+  lastDoc = null
+) => {
+  try {
+    let q = query(collection(db, collectionName));
+    
+    // Apply filters
+    if (filters && filters.length > 0) {
+      filters.forEach(filter => {
+        q = query(q, where(filter.field, filter.operator, filter.value));
+      });
+    }
+    
+    // Apply ordering
+    if (orderByField && orderByField.field) {
+      q = query(q, orderBy(orderByField.field, orderByField.direction || 'asc'));
+    }
+    
+    // Apply pagination
+    if (lastDoc) {
+      q = query(q, startAfter(lastDoc));
+    }
+    q = query(q, limit(pageSize));
+    
+    const querySnapshot = await getDocs(q);
+    const documents = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    return {
+      documents,
+      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
+      hasMore: querySnapshot.docs.length === pageSize
+    };
+  } catch (error) {
+    console.error(`Error getting paginated documents from ${collectionName}:`, error);
     throw error;
   }
 };
@@ -118,87 +282,166 @@ export const deleteDocument = async (collectionName, docId) => {
 
 // Users Service
 export const usersService = {
-  getAll: () => getDocuments('users', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('users', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('users'),
+  getCountByRole: (role) => getDocumentCount('users', [{ field: 'role', operator: '==', value: role.toLowerCase() }]),
   getById: (id) => getDocument('users', id),
-  create: (userData) => createDocument('users', userData),
-  update: (id, userData) => updateDocument('users', id, userData),
-  delete: (id) => deleteDocument('users', id),
-  getByRole: (role) => getDocuments('users', [{ field: 'role', operator: '==', value: role }]),
-  getByStatus: (status) => getDocuments('users', [{ field: 'status', operator: '==', value: status }])
+  create: (userData) => {
+    clearCache('users');
+    return createDocument('users', userData);
+  },
+  update: (id, userData) => {
+    clearCache('users');
+    return updateDocument('users', id, userData);
+  },
+  delete: (id) => {
+    clearCache('users');
+    return deleteDocument('users', id);
+  },
+  getByRole: (role, limitCount = null) => getDocuments('users', [{ field: 'role', operator: '==', value: role.toLowerCase() }], null, limitCount),
+  getByStatus: (status, limitCount = null) => getDocuments('users', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getPaginated: (pageSize = 20, lastDoc = null, filters = []) => getDocumentsPaginated('users', filters, { field: 'createdAt', direction: 'desc' }, pageSize, lastDoc)
 };
 
 // Courses Service
 export const coursesService = {
-  getAll: () => getDocuments('courses', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('courses', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('courses'),
   getById: (id) => getDocument('courses', id),
-  create: (courseData) => createDocument('courses', courseData),
-  update: (id, courseData) => updateDocument('courses', id, courseData),
-  delete: (id) => deleteDocument('courses', id),
-  getByStatus: (status) => getDocuments('courses', [{ field: 'status', operator: '==', value: status }])
+  create: (courseData) => {
+    clearCache('courses');
+    return createDocument('courses', courseData);
+  },
+  update: (id, courseData) => {
+    clearCache('courses');
+    return updateDocument('courses', id, courseData);
+  },
+  delete: (id) => {
+    clearCache('courses');
+    return deleteDocument('courses', id);
+  },
+  getByStatus: (status, limitCount = null) => getDocuments('courses', [{ field: 'status', operator: '==', value: status }], null, limitCount)
 };
 
 // Recordings Service
 export const recordingsService = {
-  getAll: () => getDocuments('recordings', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('recordings', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('recordings'),
   getById: (id) => getDocument('recordings', id),
-  create: (recordingData) => createDocument('recordings', recordingData),
-  update: (id, recordingData) => updateDocument('recordings', id, recordingData),
-  delete: (id) => deleteDocument('recordings', id),
-  getByMonth: (month) => getDocuments('recordings', [{ field: 'month', operator: '==', value: month }], { field: 'date', direction: 'asc' }),
-  getActive: () => getDocuments('recordings', [{ field: 'status', operator: '==', value: 'active' }], { field: 'createdAt', direction: 'desc' })
+  create: (recordingData) => {
+    clearCache('recordings');
+    return createDocument('recordings', recordingData);
+  },
+  update: (id, recordingData) => {
+    clearCache('recordings');
+    return updateDocument('recordings', id, recordingData);
+  },
+  delete: (id) => {
+    clearCache('recordings');
+    return deleteDocument('recordings', id);
+  },
+  getByMonth: (month, limitCount = null) => getDocuments('recordings', [{ field: 'month', operator: '==', value: month }], { field: 'date', direction: 'asc' }, limitCount),
+  getActive: (limitCount = 10) => getDocuments('recordings', [{ field: 'status', operator: '==', value: 'active' }], { field: 'createdAt', direction: 'desc' }, limitCount)
 };
 
 // Tasks Service
 export const tasksService = {
-  getAll: () => getDocuments('tasks', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('tasks', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('tasks'),
   getById: (id) => getDocument('tasks', id),
-  create: (taskData) => createDocument('tasks', taskData),
-  update: (id, taskData) => updateDocument('tasks', id, taskData),
-  delete: (id) => deleteDocument('tasks', id),
-  getByStatus: (status) => getDocuments('tasks', [{ field: 'status', operator: '==', value: status }]),
-  getByUser: (userId) => getDocuments('tasks', [{ field: 'userId', operator: '==', value: userId }], { field: 'createdAt', direction: 'desc' })
+  create: (taskData) => {
+    clearCache('tasks');
+    return createDocument('tasks', taskData);
+  },
+  update: (id, taskData) => {
+    clearCache('tasks');
+    return updateDocument('tasks', id, taskData);
+  },
+  delete: (id) => {
+    clearCache('tasks');
+    return deleteDocument('tasks', id);
+  },
+  getByStatus: (status, limitCount = null) => getDocuments('tasks', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getByUser: (userId, limitCount = 50) => getDocuments('tasks', [{ field: 'userId', operator: '==', value: userId }], { field: 'createdAt', direction: 'desc' }, limitCount)
 };
 
 // Blog Posts Service
 export const blogService = {
-  getAll: () => getDocuments('blogPosts', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('blogPosts', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('blogPosts'),
   getById: (id) => getDocument('blogPosts', id),
-  create: (postData) => createDocument('blogPosts', postData),
-  update: (id, postData) => updateDocument('blogPosts', id, postData),
-  delete: (id) => deleteDocument('blogPosts', id),
-  getPublished: () => getDocuments('blogPosts', [{ field: 'status', operator: '==', value: 'published' }])
+  create: (postData) => {
+    clearCache('blogPosts');
+    return createDocument('blogPosts', postData);
+  },
+  update: (id, postData) => {
+    clearCache('blogPosts');
+    return updateDocument('blogPosts', id, postData);
+  },
+  delete: (id) => {
+    clearCache('blogPosts');
+    return deleteDocument('blogPosts', id);
+  },
+  getPublished: (limitCount = null) => getDocuments('blogPosts', [{ field: 'status', operator: '==', value: 'published' }], null, limitCount)
 };
 
 // Payments Service
 export const paymentsService = {
-  getAll: () => getDocuments('payments', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('payments', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('payments'),
+  getCountByStatus: (status) => getDocumentCount('payments', [{ field: 'status', operator: '==', value: status }]),
   getById: (id) => getDocument('payments', id),
-  create: (paymentData) => createDocument('payments', paymentData),
-  update: (id, paymentData) => updateDocument('payments', id, paymentData),
-  getByStatus: (status) => getDocuments('payments', [{ field: 'status', operator: '==', value: status }]),
-  getByUser: (userId) => getDocuments('payments', [{ field: 'userId', operator: '==', value: userId }])
+  create: (paymentData) => {
+    clearCache('payments');
+    return createDocument('payments', paymentData);
+  },
+  update: (id, paymentData) => {
+    clearCache('payments');
+    return updateDocument('payments', id, paymentData);
+  },
+  getByStatus: (status, limitCount = null) => getDocuments('payments', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getByUser: (userId, limitCount = 50) => getDocuments('payments', [{ field: 'userId', operator: '==', value: userId }], null, limitCount)
 };
 
 // Zoom Sessions Service
 export const zoomSessionsService = {
-  getAll: () => getDocuments('zoomSessions', [], { field: 'date', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('zoomSessions', [], { field: 'date', direction: 'desc' }, limitCount),
   getById: (id) => getDocument('zoomSessions', id),
-  create: (sessionData) => createDocument('zoomSessions', sessionData),
-  update: (id, sessionData) => updateDocument('zoomSessions', id, sessionData),
-  delete: (id) => deleteDocument('zoomSessions', id),
-  getByStatus: (status) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: status }], { field: 'date', direction: 'asc' }),
-  getUpcoming: () => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: 'upcoming' }], { field: 'date', direction: 'asc' })
+  create: (sessionData) => {
+    clearCache('zoomSessions');
+    return createDocument('zoomSessions', sessionData);
+  },
+  update: (id, sessionData) => {
+    clearCache('zoomSessions');
+    return updateDocument('zoomSessions', id, sessionData);
+  },
+  delete: (id) => {
+    clearCache('zoomSessions');
+    return deleteDocument('zoomSessions', id);
+  },
+  getByStatus: (status, limitCount = null) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: status }], { field: 'date', direction: 'asc' }, limitCount),
+  getUpcoming: (limitCount = 10) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: 'upcoming' }], { field: 'date', direction: 'asc' }, limitCount)
 };
 
 // Batches Service
 export const batchesService = {
-  getAll: () => getDocuments('batches', [], { field: 'createdAt', direction: 'desc' }),
+  getAll: (limitCount = null) => getDocuments('batches', [], { field: 'createdAt', direction: 'desc' }, limitCount),
+  getCount: () => getDocumentCount('batches'),
   getById: (id) => getDocument('batches', id),
-  create: (batchData) => createDocument('batches', batchData),
-  update: (id, batchData) => updateDocument('batches', id, batchData),
-  delete: (id) => deleteDocument('batches', id),
-  getByCourse: (courseId) => getDocuments('batches', [{ field: 'courseId', operator: '==', value: courseId }], { field: 'number', direction: 'asc' }),
-  getByStatus: (status) => getDocuments('batches', [{ field: 'status', operator: '==', value: status }])
+  create: (batchData) => {
+    clearCache('batches');
+    return createDocument('batches', batchData);
+  },
+  update: (id, batchData) => {
+    clearCache('batches');
+    return updateDocument('batches', id, batchData);
+  },
+  delete: (id) => {
+    clearCache('batches');
+    return deleteDocument('batches', id);
+  },
+  getByCourse: (courseId, limitCount = null) => getDocuments('batches', [{ field: 'courseId', operator: '==', value: courseId }], { field: 'number', direction: 'asc' }, limitCount),
+  getByStatus: (status, limitCount = null) => getDocuments('batches', [{ field: 'status', operator: '==', value: status }], null, limitCount)
 };
 
 

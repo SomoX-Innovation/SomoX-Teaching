@@ -88,8 +88,9 @@ const AdminUsers = () => {
       // Small delay to ensure Firestore has updated
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Load ALL users from Firestore (no filters applied)
-      const data = await usersService.getAll();
+      // Load users with a reasonable limit (1000) instead of all
+      // For admin pages, you might want to implement pagination later
+      const data = await usersService.getAll(1000);
       console.log('Raw users loaded from Firestore:', data.length);
       
       // Normalize role field to lowercase for consistency
