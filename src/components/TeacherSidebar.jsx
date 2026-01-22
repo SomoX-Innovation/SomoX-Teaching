@@ -4,22 +4,18 @@ import {
   FaHome, 
   FaUsers, 
   FaGraduationCap,
-  FaChartBar,
   FaVideo,
   FaTasks,
-  FaRobot,
   FaChevronDown,
   FaUser,
   FaSignOutAlt,
-  FaCog,
-  FaBook,
-  FaMoneyBillWave
+  FaBook
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import './Sidebar.css';
 
-const AdminSidebar = () => {
+const TeacherSidebar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const location = useLocation();
@@ -45,10 +41,10 @@ const AdminSidebar = () => {
   };
 
   return (
-    <aside id="logo-sidebar" className="sidebar" aria-label="Admin Sidebar">
+    <aside id="logo-sidebar" className="sidebar" aria-label="Teacher Sidebar">
       <div className="sidebar-content">
         {/* Logo */}
-        <Link to="/organization/dashboard" className="logo-container">
+        <Link to="/teacher/dashboard" className="logo-container">
           <div className="logo-wrapper">
             <img 
               src="/assets/logo.png" 
@@ -80,16 +76,16 @@ const AdminSidebar = () => {
                 <div className="avatar-status"></div>
               </div>
               <div className="user-info">
-                <div className="user-name" title={user?.name || 'Admin User'}>
-                  {user?.name || 'Admin User'}
+                <div className="user-name" title={user?.name || 'Teacher'}>
+                  {user?.name || 'Teacher'}
                 </div>
-                <div className="user-role">Administrator</div>
+                <div className="user-role">Teacher</div>
               </div>
               <FaChevronDown className={`arrow-icon ${isUserMenuOpen ? 'rotate' : ''}`} />
             </button>
             {isUserMenuOpen && (
               <div className="user-dropdown fade-in">
-                <Link to="/organization/profile" className="dropdown-item">
+                <Link to="/teacher/profile" className="dropdown-item">
                   <FaUser className="dropdown-icon" />
                   <span>Profile</span>
                 </Link>
@@ -108,8 +104,8 @@ const AdminSidebar = () => {
           {/* Dashboard */}
           <li>
             <Link 
-              to="/organization/dashboard" 
-              className={`nav-link ${isActive('/organization/dashboard') ? 'active' : ''}`}
+              to="/teacher/dashboard" 
+              className={`nav-link ${isActive('/teacher/dashboard') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaHome className="nav-icon" />
@@ -119,16 +115,16 @@ const AdminSidebar = () => {
             </Link>
           </li>
 
-          {/* Users Management */}
+          {/* Students Management */}
           <li>
             <Link 
-              to="/organization/users" 
-              className={`nav-link ${isActive('/organization/users') ? 'active' : ''}`}
+              to="/teacher/users" 
+              className={`nav-link ${isActive('/teacher/users') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaUsers className="nav-icon" />
               </div>
-              <span className="nav-text">Users</span>
+              <span className="nav-text">Students</span>
               <div className="nav-indicator"></div>
             </Link>
           </li>
@@ -136,8 +132,8 @@ const AdminSidebar = () => {
           {/* Classes Management */}
           <li>
             <Link 
-              to="/organization/courses" 
-              className={`nav-link ${isActive('/organization/courses') ? 'active' : ''}`}
+              to="/teacher/courses" 
+              className={`nav-link ${isActive('/teacher/courses') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaGraduationCap className="nav-icon" />
@@ -147,12 +143,11 @@ const AdminSidebar = () => {
             </Link>
           </li>
 
-
           {/* Session Recordings */}
           <li>
             <Link 
-              to="/organization/recordings" 
-              className={`nav-link ${isActive('/organization/recordings') ? 'active' : ''}`}
+              to="/teacher/recordings" 
+              className={`nav-link ${isActive('/teacher/recordings') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaVideo className="nav-icon" />
@@ -165,8 +160,8 @@ const AdminSidebar = () => {
           {/* Tasks Management */}
           <li>
             <Link 
-              to="/organization/tasks" 
-              className={`nav-link ${isActive('/organization/tasks') ? 'active' : ''}`}
+              to="/teacher/tasks" 
+              className={`nav-link ${isActive('/teacher/tasks') ? 'active' : ''}`}
             >
               <div className="nav-icon-wrapper">
                 <FaTasks className="nav-icon" />
@@ -179,7 +174,7 @@ const AdminSidebar = () => {
           {/* Blog Management */}
           <li>
             <button
-              className={`nav-link ${isParentActive(['/organization/blog']) ? 'active' : ''}`}
+              className={`nav-link ${isParentActive(['/teacher/blog']) ? 'active' : ''}`}
               onClick={() => toggleSubmenu('blog')}
             >
               <div className="nav-icon-wrapper">
@@ -190,13 +185,13 @@ const AdminSidebar = () => {
             </button>
             <ul className={`submenu ${openSubmenu === 'blog' ? 'open' : ''}`}>
               <li>
-                <Link to="/organization/blog" className="submenu-link">
+                <Link to="/teacher/blog" className="submenu-link">
                   <div className="submenu-dot"></div>
                   <span>All Posts</span>
                 </Link>
               </li>
               <li>
-                <Link to="/organization/blog/create" className="submenu-link">
+                <Link to="/teacher/blog/create" className="submenu-link">
                   <div className="submenu-dot"></div>
                   <span>Create Post</span>
                 </Link>
@@ -204,47 +199,6 @@ const AdminSidebar = () => {
             </ul>
           </li>
 
-          {/* Analytics */}
-          <li>
-            <Link 
-              to="/organization/analytics" 
-              className={`nav-link ${isActive('/organization/analytics') ? 'active' : ''}`}
-            >
-              <div className="nav-icon-wrapper">
-                <FaChartBar className="nav-icon" />
-              </div>
-              <span className="nav-text">Analytics</span>
-              <div className="nav-indicator"></div>
-            </Link>
-          </li>
-
-          {/* Payments */}
-          <li>
-            <Link 
-              to="/organization/payments" 
-              className={`nav-link ${isActive('/organization/payments') ? 'active' : ''}`}
-            >
-              <div className="nav-icon-wrapper">
-                <FaMoneyBillWave className="nav-icon" />
-              </div>
-              <span className="nav-text">Payments</span>
-              <div className="nav-indicator"></div>
-            </Link>
-          </li>
-
-          {/* Settings */}
-          <li>
-            <Link 
-              to="/organization/settings" 
-              className={`nav-link ${isActive('/organization/settings') ? 'active' : ''}`}
-            >
-              <div className="nav-icon-wrapper">
-                <FaCog className="nav-icon" />
-              </div>
-              <span className="nav-text">Settings</span>
-              <div className="nav-indicator"></div>
-            </Link>
-          </li>
         </ul>
 
         {/* Footer */}
@@ -259,5 +213,4 @@ const AdminSidebar = () => {
   );
 };
 
-export default AdminSidebar;
-
+export default TeacherSidebar;

@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -21,7 +20,6 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app, 'us-central1');
 
 // Connect to emulators in development (if running)
 if (import.meta.env.DEV) {
@@ -35,7 +33,6 @@ if (import.meta.env.DEV) {
         // connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
         // connectFirestoreEmulator(db, 'localhost', 8080);
         // connectStorageEmulator(storage, 'localhost', 9199);
-        // connectFunctionsEmulator(functions, 'localhost', 5001);
       }
     }
   } catch (error) {
@@ -44,7 +41,7 @@ if (import.meta.env.DEV) {
   }
 }
 
-// Export app for use with Functions
+// Export app
 export { app };
 
 export default app;

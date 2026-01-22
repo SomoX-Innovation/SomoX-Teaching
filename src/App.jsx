@@ -5,6 +5,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import AdminSidebar from './components/AdminSidebar';
+import TeacherSidebar from './components/TeacherSidebar';
+import SuperAdminSidebar from './components/SuperAdminSidebar';
 import ProtectedRoute from './components/ProtectedRoute';
 // User Pages
 import Dashboard from './pages/User/Dashboard';
@@ -14,18 +16,28 @@ import MonthSessionRecordings from './pages/User/MonthSessionRecordings';
 import OtherRecording from './pages/User/OtherRecording';
 import ZoomSessions from './pages/User/ZoomSessions';
 import AIAssistant from './pages/User/AIAssistant';
-// Admin Pages
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AdminUsers from './pages/Admin/AdminUsers';
-import AdminCourses from './pages/Admin/AdminCourses';
-import AdminBatches from './pages/Admin/AdminBatches';
-import AdminRecordings from './pages/Admin/AdminRecordings';
-import AdminTasks from './pages/Admin/AdminTasks';
-import AdminBlog from './pages/Admin/AdminBlog';
-import AdminAnalytics from './pages/Admin/AdminAnalytics';
-import AdminPayments from './pages/Admin/AdminPayments';
-import AdminSettings from './pages/Admin/AdminSettings';
-import AdminProfile from './pages/Admin/AdminProfile';
+// Organization Pages (formerly Admin)
+import OrganizationDashboard from './pages/Organization/OrganizationDashboard';
+import OrganizationUsers from './pages/Organization/OrganizationUsers';
+import OrganizationCourses from './pages/Organization/OrganizationCourses';
+import OrganizationRecordings from './pages/Organization/OrganizationRecordings';
+import OrganizationTasks from './pages/Organization/OrganizationTasks';
+import OrganizationBlog from './pages/Organization/OrganizationBlog';
+import OrganizationAnalytics from './pages/Organization/OrganizationAnalytics';
+import OrganizationPayments from './pages/Organization/OrganizationPayments';
+import OrganizationSettings from './pages/Organization/OrganizationSettings';
+import OrganizationProfile from './pages/Organization/OrganizationProfile';
+// Teacher Pages
+import TeacherDashboard from './pages/Teacher/TeacherDashboard';
+import TeacherUsers from './pages/Teacher/TeacherUsers';
+import TeacherCourses from './pages/Teacher/TeacherCourses';
+import TeacherRecordings from './pages/Teacher/TeacherRecordings';
+import TeacherTasks from './pages/Teacher/TeacherTasks';
+import TeacherBlog from './pages/Teacher/TeacherBlog';
+import TeacherProfile from './pages/Teacher/TeacherProfile';
+// SuperAdmin Pages
+import SuperAdminDashboard from './pages/SuperAdmin/SuperAdminDashboard';
+import SuperAdminOrganizations from './pages/SuperAdmin/SuperAdminOrganizations';
 // Public Pages
 import Home from './pages/Home';
 import SignIn from './pages/SignIn';
@@ -35,14 +47,21 @@ import './App.css';
 // Layout component to conditionally show sidebar based on role
 function Layout({ children }) {
   const location = useLocation();
-  const { isAdmin } = useAuth();
-  const isAdminRoute = location.pathname.startsWith('/admin');
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const isSuperAdminRoute = location.pathname.startsWith('/superadmin');
+  const isAdminRoute = location.pathname.startsWith('/organization');
+  const isTeacherRoute = location.pathname.startsWith('/teacher');
   const isDashboardRoute = location.pathname.startsWith('/dashboard');
-  const showSidebar = isAdminRoute || isDashboardRoute;
+  const showSidebar = isSuperAdminRoute || isAdminRoute || isTeacherRoute || isDashboardRoute;
 
   return (
     <div className={showSidebar ? "app-container" : ""}>
-      {showSidebar && (isAdminRoute ? <AdminSidebar /> : <Sidebar />)}
+      {showSidebar && (
+        isSuperAdminRoute ? <SuperAdminSidebar /> :
+        isAdminRoute ? <AdminSidebar /> :
+        isTeacherRoute ? <TeacherSidebar /> :
+        <Sidebar />
+      )}
       <main className={showSidebar ? "main-content" : ""}>
         {children}
       </main>
@@ -153,75 +172,65 @@ function App() {
                 } 
               />
               
-              {/* Admin Routes - Protected */}
+              {/* Organization Routes - Protected (formerly Admin) */}
               <Route 
-                path="/admin/dashboard" 
+                path="/organization/dashboard" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminDashboard />
+                    <OrganizationDashboard />
                   </ProtectedRoute>
                 } 
               />
               
-              {/* Admin Users */}
+              {/* Organization Users */}
               <Route 
-                path="/admin/users" 
+                path="/organization/users" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminUsers />
+                    <OrganizationUsers />
                   </ProtectedRoute>
                 } 
               />
               
-              {/* Admin Courses */}
+              {/* Organization Classes */}
               <Route 
-                path="/admin/courses" 
+                path="/organization/courses" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminCourses />
+                    <OrganizationCourses />
                   </ProtectedRoute>
                 } 
               />
               
-              {/* Admin Batches */}
+              {/* Organization Recordings */}
               <Route 
-                path="/admin/batches" 
+                path="/organization/recordings" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminBatches />
+                    <OrganizationRecordings />
                   </ProtectedRoute>
                 } 
               />
               
-              {/* Admin Recordings */}
+              {/* Organization Other Pages */}
               <Route 
-                path="/admin/recordings" 
+                path="/organization/tasks" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminRecordings />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              {/* Admin Other Pages */}
-              <Route 
-                path="/admin/tasks" 
-                element={
-                  <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminTasks />
+                    <OrganizationTasks />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/admin/blog" 
+                path="/organization/blog" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminBlog />
+                    <OrganizationBlog />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/admin/blog/create" 
+                path="/organization/blog/create" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <PlaceholderPage title="Create Post" description="Create a new blog post." />
@@ -229,34 +238,131 @@ function App() {
                 } 
               />
               <Route 
-                path="/admin/analytics" 
+                path="/organization/analytics" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminAnalytics />
+                    <OrganizationAnalytics />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/admin/payments" 
+                path="/organization/payments" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminPayments />
+                    <OrganizationPayments />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/admin/settings" 
+                path="/organization/settings" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminSettings />
+                    <OrganizationSettings />
                   </ProtectedRoute>
                 } 
               />
               <Route 
-                path="/admin/profile" 
+                path="/organization/profile" 
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
-                    <AdminProfile />
+                    <OrganizationProfile />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Routes - Protected */}
+              <Route 
+                path="/teacher/dashboard" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Users */}
+              <Route 
+                path="/teacher/users" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherUsers />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Classes */}
+              <Route 
+                path="/teacher/courses" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherCourses />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Recordings */}
+              <Route 
+                path="/teacher/recordings" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherRecordings />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Tasks */}
+              <Route 
+                path="/teacher/tasks" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherTasks />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Blog */}
+              <Route 
+                path="/teacher/blog" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherBlog />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/teacher/blog/create" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <PlaceholderPage title="Create Post" description="Create a new blog post." />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Teacher Profile */}
+              <Route 
+                path="/teacher/profile" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="teacher">
+                    <TeacherProfile />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* SuperAdmin Routes - Protected */}
+              <Route 
+                path="/superadmin/dashboard" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="superAdmin">
+                    <SuperAdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/superadmin/organizations" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="superAdmin">
+                    <SuperAdminOrganizations />
                   </ProtectedRoute>
                 } 
               />

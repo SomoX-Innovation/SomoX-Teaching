@@ -3,21 +3,38 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { db, auth } from '../config/firebase';
 
 /**
- * Get user role from Firestore
+ * Get user data from Firestore (role, organizationId, etc.)
  * @param {string} userId - Firebase Auth UID
- * @returns {Promise<string>} - User role ('admin' or 'student')
+ * @returns {Promise<Object>} - User data {role, organizationId, ...}
  */
-export const getUserRole = async (userId) => {
+export const getUserData = async (userId) => {
   try {
     const userDoc = await getDoc(doc(db, 'users', userId));
     if (userDoc.exists()) {
-      return userDoc.data().role || 'student';
+      const data = userDoc.data();
+      return {
+        role: data.role || 'student',
+        organizationId: data.organizationId || null,
+        name: data.name || null,
+        email: data.email || null,
+        ...data
+      };
     }
-    return 'student'; // Default role
+    return { role: 'student', organizationId: null }; // Default
   } catch (error) {
-    console.error('Error getting user role:', error);
-    return 'student'; // Default role on error
+    console.error('Error getting user data:', error);
+    return { role: 'student', organizationId: null }; // Default on error
   }
+};
+
+/**
+ * Get user role from Firestore (backward compatibility)
+ * @param {string} userId - Firebase Auth UID
+ * @returns {Promise<string>} - User role ('superAdmin', 'admin', or 'student')
+ */
+export const getUserRole = async (userId) => {
+  const userData = await getUserData(userId);
+  return userData.role || 'student';
 };
 
 /**

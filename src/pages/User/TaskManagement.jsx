@@ -258,7 +258,7 @@ const TaskManagement = () => {
 
       {/* Update Task Modal */}
       {showUpdateModal && selectedTask && (
-        <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div className="modal-header">
               <h2>Update Task Progress</h2>

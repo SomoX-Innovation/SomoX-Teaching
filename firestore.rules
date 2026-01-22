@@ -7,11 +7,63 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check if user is admin
+    // Helper function to get user data
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Helper function to get user role safely
+    function getUserRole() {
+      return getUserData().role;
+    }
+    
+    // Helper function to check if user is superAdmin (case-insensitive check)
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserRole() != null &&
+             (getUserRole() == 'superAdmin' || 
+              getUserRole() == 'SuperAdmin' || 
+              getUserRole() == 'SUPERADMIN' ||
+              getUserRole() == 'superadmin');
+    }
+    
+    // Helper function to check if user is admin (includes superAdmin)
     function isAdmin() {
       return isAuthenticated() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+             getUserRole() != null &&
+             (getUserRole() == 'admin' || 
+              getUserRole() == 'superAdmin' || 
+              getUserRole() == 'SuperAdmin' || 
+              getUserRole() == 'SUPERADMIN' ||
+              getUserRole() == 'superadmin');
+    }
+    
+    // Helper function to check if user is organization admin
+    function isOrganizationAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserRole() != null &&
+             getUserRole() == 'admin';
+    }
+    
+    // Helper function to check if user is teacher
+    function isTeacher() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserRole() != null &&
+             getUserRole() == 'teacher';
+    }
+    
+    // Helper function to get user's organizationId
+    function getUserOrganizationId() {
+      return getUserData().organizationId;
+    }
+    
+    // Helper function to check if document belongs to user's organization
+    function belongsToUserOrganization() {
+      return resource.data.organizationId == getUserOrganizationId();
     }
     
     // Helper function to check if user is the owner of a document
@@ -19,19 +71,59 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Organizations collection
+    match /organizations/{orgId} {
+      // SuperAdmin can read and write all organizations
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read their own organization
+      allow read: if isOrganizationAdmin() && 
+                     resource.data.id == getUserOrganizationId();
+    }
+    
     // Users collection
     match /users/{userId} {
       // Users can read and write their own document
       allow read, write: if isOwner(userId);
       
-      // Admins can read and write all user documents
-      allow read, write: if isAdmin();
+      // SuperAdmin can read and write all user documents
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read and write users in their organization
+      allow read, write: if isOrganizationAdmin() && 
+                            (resource.data.organizationId == getUserOrganizationId() || 
+                             request.resource.data.organizationId == getUserOrganizationId());
+      
+      // Teachers can read users (students) in their organization
+      allow read: if isTeacher() && 
+                     resource.data.organizationId == getUserOrganizationId() &&
+                     resource.data.role == 'student';
+      
+      // Teachers can create and update students in their organization
+      allow create, update: if isTeacher() && 
+                               request.resource.data.organizationId == getUserOrganizationId() &&
+                               request.resource.data.role == 'student';
     }
     
-    // Recordings collection - readable by all authenticated users, writable by admins only
+    // Recordings collection
     match /recordings/{recordingId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // Users can read recordings in their organization
+      allow read: if isAuthenticated() && 
+                     (resource.data.organizationId == getUserOrganizationId() || isSuperAdmin());
+      
+      // SuperAdmin can write all recordings
+      allow write: if isSuperAdmin();
+      
+      // Organization admins can write recordings in their organization
+      allow write: if isOrganizationAdmin() && 
+                      (resource.data.organizationId == getUserOrganizationId() || 
+                       request.resource.data.organizationId == getUserOrganizationId());
+      
+      // Teachers can read and write recordings in their organization
+      allow read: if isTeacher() && 
+                     resource.data.organizationId == getUserOrganizationId();
+      allow write: if isTeacher() && 
+                      request.resource.data.organizationId == getUserOrganizationId();
     }
     
     // Tasks collection
@@ -40,8 +132,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
                      resource.data.userId == request.auth.uid;
       
-      // Admins can read and write all tasks
-      allow read, write: if isAdmin();
+      // SuperAdmin can read and write all tasks
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read and write tasks in their organization
+      allow read, write: if isOrganizationAdmin() && 
+                           (resource.data.organizationId == getUserOrganizationId() || 
+                            request.resource.data.organizationId == getUserOrganizationId());
       
       // Users can create tasks assigned to themselves
       allow create: if isAuthenticated() && 
@@ -54,30 +151,88 @@ service cloud.firestore {
     
     // Blog Posts collection
     match /blogPosts/{postId} {
-      // All authenticated users can read published posts
+      // Users can read published posts in their organization
       allow read: if isAuthenticated() && 
-                     (resource.data.status == 'published' || isAdmin());
+                     (resource.data.status == 'published' || isSuperAdmin() || 
+                      (isOrganizationAdmin() && resource.data.organizationId == getUserOrganizationId()));
       
-      // Only admins can write blog posts
-      allow write: if isAdmin();
+      // SuperAdmin can write all blog posts
+      allow write: if isSuperAdmin();
+      
+      // Organization admins can write blog posts in their organization
+      allow write: if isOrganizationAdmin() && 
+                      (resource.data.organizationId == getUserOrganizationId() || 
+                       request.resource.data.organizationId == getUserOrganizationId());
     }
     
-    // Zoom Sessions collection - readable by all authenticated users, writable by admins only
+    // Zoom Sessions collection
     match /zoomSessions/{sessionId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // Users can read sessions in their organization
+      allow read: if isAuthenticated() && 
+                     (resource.data.organizationId == getUserOrganizationId() || isSuperAdmin());
+      
+      // SuperAdmin can write all sessions
+      allow write: if isSuperAdmin();
+      
+      // Organization admins can write sessions in their organization
+      allow write: if isOrganizationAdmin() && 
+                      (resource.data.organizationId == getUserOrganizationId() || 
+                       request.resource.data.organizationId == getUserOrganizationId());
     }
     
-    // Courses collection - readable by all authenticated users, writable by admins only
+    // Courses collection
     match /courses/{courseId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // SuperAdmin can read and write all courses
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read courses in their organization (including those without organizationId for backward compatibility)
+      allow read: if isOrganizationAdmin() && 
+                     (resource.data.organizationId == getUserOrganizationId() || 
+                      !resource.data.organizationId);
+      
+      // Organization admins can create courses in their organization
+      allow create: if isOrganizationAdmin() && 
+                      request.resource.data.organizationId != null &&
+                      request.resource.data.organizationId == getUserOrganizationId();
+      
+      // Organization admins can update courses in their organization
+      allow update: if isOrganizationAdmin() && 
+                      (resource.data.organizationId == getUserOrganizationId() || 
+                       !resource.data.organizationId) &&
+                      request.resource.data.organizationId == getUserOrganizationId();
+      
+      // Organization admins can delete courses in their organization
+      allow delete: if isOrganizationAdmin() && 
+                      resource.data.organizationId == getUserOrganizationId();
+      
+      // Teachers can read courses in their organization
+      allow read: if isTeacher() && 
+                     (resource.data.organizationId == getUserOrganizationId() || 
+                      !resource.data.organizationId);
+      
+      // Teachers can create courses in their organization
+      allow create: if isTeacher() && 
+                       request.resource.data.organizationId != null &&
+                       request.resource.data.organizationId == getUserOrganizationId();
+      
+      // Teachers can update and delete courses in their organization
+      allow update, delete: if isTeacher() && 
+                               resource.data.organizationId == getUserOrganizationId();
     }
     
-    // Batches collection - readable by all authenticated users, writable by admins only
+    // Batches collection
     match /batches/{batchId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // Users can read batches in their organization
+      allow read: if isAuthenticated() && 
+                     (resource.data.organizationId == getUserOrganizationId() || isSuperAdmin());
+      
+      // SuperAdmin can write all batches
+      allow write: if isSuperAdmin();
+      
+      // Organization admins can write batches in their organization
+      allow write: if isOrganizationAdmin() && 
+                      (resource.data.organizationId == getUserOrganizationId() || 
+                       request.resource.data.organizationId == getUserOrganizationId());
     }
     
     // Payments collection
@@ -86,8 +241,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
                      resource.data.userId == request.auth.uid;
       
-      // Admins can read and write all payments
-      allow read, write: if isAdmin();
+      // SuperAdmin can read and write all payments
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read and write payments in their organization
+      allow read, write: if isOrganizationAdmin() && 
+                            (resource.data.organizationId == getUserOrganizationId() || 
+                             request.resource.data.organizationId == getUserOrganizationId());
       
       // Users can create payments for themselves
       allow create: if isAuthenticated() && 

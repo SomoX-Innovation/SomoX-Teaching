@@ -27,13 +27,48 @@ const SignIn = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard');
+      const role = user.role?.toLowerCase();
+      console.log('🔐 SignIn - Redirecting user with role:', user.role, 'normalized:', role);
+      
+      if (role === 'superadmin') {
+        console.log('✅ Redirecting SuperAdmin to /superadmin/dashboard');
+        navigate('/superadmin/dashboard');
+      } else if (role === 'admin') {
+        console.log('✅ Redirecting Admin to /organization/dashboard');
+        navigate('/organization/dashboard');
+      } else if (role === 'teacher') {
+        console.log('✅ Redirecting Teacher to /teacher/dashboard');
+        navigate('/teacher/dashboard');
       } else {
+        console.log('✅ Redirecting Student to /dashboard');
         navigate('/dashboard');
       }
     }
   }, [user, navigate]);
+
+  const handleEmailBlur = (e) => {
+    const value = e.target.value.trim();
+    if (value && !value.includes('@')) {
+      setFormData({...formData, email: `${value}@gmail.com`});
+    }
+  };
+
+  const handleEmailKeyDown = (e) => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      const value = formData.email?.trim() || '';
+      if (value && !value.includes('@')) {
+        e.preventDefault();
+        setFormData({...formData, email: `${value}@gmail.com`});
+        // Move focus to password field after a brief delay
+        setTimeout(() => {
+          const passwordInput = e.target.form?.querySelector('input[type="password"]');
+          if (passwordInput) {
+            passwordInput.focus();
+          }
+        }, 10);
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -406,7 +441,22 @@ const SignIn = () => {
                             type="email"
                             value={resetEmail}
                             onChange={(e) => setResetEmail(e.target.value)}
-                            placeholder="Enter your email address"
+                            onBlur={(e) => {
+                              const value = e.target.value.trim();
+                              if (value && !value.includes('@')) {
+                                setResetEmail(`${value}@gmail.com`);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Tab' || e.key === 'Enter') {
+                                const value = resetEmail?.trim() || '';
+                                if (value && !value.includes('@')) {
+                                  e.preventDefault();
+                                  setResetEmail(`${value}@gmail.com`);
+                                }
+                              }
+                            }}
+                            placeholder="Enter your email address (or username for @gmail.com)"
                             required
                             style={{
                               width: '100%',

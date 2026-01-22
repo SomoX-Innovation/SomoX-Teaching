@@ -104,9 +104,11 @@ export const getDocumentCount = async (collectionName, filters = []) => {
 };
 
 export const getDocuments = async (collectionName, filters = [], orderByField = null, limitCount = null, useCache = true) => {
+  // Define cacheKey at function scope so it's available in catch block
+  const cacheKey = getCacheKey(collectionName, filters, orderByField, limitCount);
+  
   try {
     // Check cache first
-    const cacheKey = getCacheKey(collectionName, filters, orderByField, limitCount);
     if (useCache) {
       const cached = getCachedData(cacheKey);
       if (cached) {
@@ -161,6 +163,12 @@ export const getDocuments = async (collectionName, filters = [], orderByField = 
       orderBy: orderByField
     });
     
+    // If permission denied, return empty array instead of throwing (for better UX)
+    if (error.code === 'permission-denied') {
+      console.warn(`⚠️ Permission denied for ${collectionName}, returning empty array`);
+      return [];
+    }
+    
     // If orderBy fails, try without it
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
       console.log(`⚠️ Retrying ${collectionName} without orderBy...`);
@@ -179,8 +187,17 @@ export const getDocuments = async (collectionName, filters = [], orderByField = 
           ...doc.data()
         }));
         console.log(`✅ Loaded ${documents.length} documents from ${collectionName} (without orderBy)`);
+        // Cache the results
+        if (useCache) {
+          setCachedData(cacheKey, documents);
+        }
         return documents;
       } catch (retryError) {
+        // If retry also fails with permission error, return empty array instead of throwing
+        if (retryError.code === 'permission-denied') {
+          console.warn(`⚠️ Permission denied for ${collectionName} (retry), returning empty array`);
+          return [];
+        }
         console.error(`❌ Retry also failed for ${collectionName}:`, retryError);
         throw retryError;
       }
@@ -282,9 +299,23 @@ export const deleteDocument = async (collectionName, docId) => {
 
 // Users Service
 export const usersService = {
-  getAll: (limitCount = null) => getDocuments('users', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('users'),
-  getCountByRole: (role) => getDocumentCount('users', [{ field: 'role', operator: '==', value: role.toLowerCase() }]),
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('users', filters, { field: 'createdAt', direction: 'desc' }, limitCount, useCache);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('users', filters);
+  },
+  getCountByRole: (role, organizationId = null) => {
+    const filters = [
+      { field: 'role', operator: '==', value: role.toLowerCase() }
+    ];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocumentCount('users', filters);
+  },
   getById: (id) => getDocument('users', id),
   create: (userData) => {
     clearCache('users');
@@ -298,15 +329,36 @@ export const usersService = {
     clearCache('users');
     return deleteDocument('users', id);
   },
-  getByRole: (role, limitCount = null) => getDocuments('users', [{ field: 'role', operator: '==', value: role.toLowerCase() }], null, limitCount),
-  getByStatus: (status, limitCount = null) => getDocuments('users', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getByRole: (role, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'role', operator: '==', value: role.toLowerCase() }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('users', filters, null, limitCount);
+  },
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('users', filters, null, limitCount);
+  },
+  getByOrganization: (organizationId, limitCount = null) => {
+    return getDocuments('users', [{ field: 'organizationId', operator: '==', value: organizationId }], { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
   getPaginated: (pageSize = 20, lastDoc = null, filters = []) => getDocumentsPaginated('users', filters, { field: 'createdAt', direction: 'desc' }, pageSize, lastDoc)
 };
 
 // Courses Service
 export const coursesService = {
-  getAll: (limitCount = null) => getDocuments('courses', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('courses'),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('courses', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('courses', filters);
+  },
   getById: (id) => getDocument('courses', id),
   create: (courseData) => {
     clearCache('courses');
@@ -320,13 +372,25 @@ export const coursesService = {
     clearCache('courses');
     return deleteDocument('courses', id);
   },
-  getByStatus: (status, limitCount = null) => getDocuments('courses', [{ field: 'status', operator: '==', value: status }], null, limitCount)
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('courses', filters, null, limitCount);
+  }
 };
 
 // Recordings Service
 export const recordingsService = {
-  getAll: (limitCount = null) => getDocuments('recordings', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('recordings'),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('recordings', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('recordings', filters);
+  },
   getById: (id) => getDocument('recordings', id),
   create: (recordingData) => {
     clearCache('recordings');
@@ -340,14 +404,32 @@ export const recordingsService = {
     clearCache('recordings');
     return deleteDocument('recordings', id);
   },
-  getByMonth: (month, limitCount = null) => getDocuments('recordings', [{ field: 'month', operator: '==', value: month }], { field: 'date', direction: 'asc' }, limitCount),
-  getActive: (limitCount = 10) => getDocuments('recordings', [{ field: 'status', operator: '==', value: 'active' }], { field: 'createdAt', direction: 'desc' }, limitCount)
+  getByMonth: (month, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'month', operator: '==', value: month }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('recordings', filters, { field: 'date', direction: 'asc' }, limitCount);
+  },
+  getActive: (limitCount = 10, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: 'active' }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('recordings', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  }
 };
 
 // Tasks Service
 export const tasksService = {
-  getAll: (limitCount = null) => getDocuments('tasks', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('tasks'),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('tasks', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('tasks', filters);
+  },
   getById: (id) => getDocument('tasks', id),
   create: (taskData) => {
     clearCache('tasks');
@@ -361,14 +443,26 @@ export const tasksService = {
     clearCache('tasks');
     return deleteDocument('tasks', id);
   },
-  getByStatus: (status, limitCount = null) => getDocuments('tasks', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('tasks', filters, null, limitCount);
+  },
   getByUser: (userId, limitCount = 50) => getDocuments('tasks', [{ field: 'userId', operator: '==', value: userId }], { field: 'createdAt', direction: 'desc' }, limitCount)
 };
 
 // Blog Posts Service
 export const blogService = {
-  getAll: (limitCount = null) => getDocuments('blogPosts', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('blogPosts'),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('blogPosts', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('blogPosts', filters);
+  },
   getById: (id) => getDocument('blogPosts', id),
   create: (postData) => {
     clearCache('blogPosts');
@@ -382,14 +476,32 @@ export const blogService = {
     clearCache('blogPosts');
     return deleteDocument('blogPosts', id);
   },
-  getPublished: (limitCount = null) => getDocuments('blogPosts', [{ field: 'status', operator: '==', value: 'published' }], null, limitCount)
+  getPublished: (limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: 'published' }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('blogPosts', filters, null, limitCount);
+  }
 };
 
 // Payments Service
 export const paymentsService = {
-  getAll: (limitCount = null) => getDocuments('payments', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('payments'),
-  getCountByStatus: (status) => getDocumentCount('payments', [{ field: 'status', operator: '==', value: status }]),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('payments', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('payments', filters);
+  },
+  getCountByStatus: (status, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocumentCount('payments', filters);
+  },
   getById: (id) => getDocument('payments', id),
   create: (paymentData) => {
     clearCache('payments');
@@ -399,13 +511,22 @@ export const paymentsService = {
     clearCache('payments');
     return updateDocument('payments', id, paymentData);
   },
-  getByStatus: (status, limitCount = null) => getDocuments('payments', [{ field: 'status', operator: '==', value: status }], null, limitCount),
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('payments', filters, null, limitCount);
+  },
   getByUser: (userId, limitCount = 50) => getDocuments('payments', [{ field: 'userId', operator: '==', value: userId }], null, limitCount)
 };
 
 // Zoom Sessions Service
 export const zoomSessionsService = {
-  getAll: (limitCount = null) => getDocuments('zoomSessions', [], { field: 'date', direction: 'desc' }, limitCount),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('zoomSessions', filters, { field: 'date', direction: 'desc' }, limitCount);
+  },
   getById: (id) => getDocument('zoomSessions', id),
   create: (sessionData) => {
     clearCache('zoomSessions');
@@ -419,14 +540,32 @@ export const zoomSessionsService = {
     clearCache('zoomSessions');
     return deleteDocument('zoomSessions', id);
   },
-  getByStatus: (status, limitCount = null) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: status }], { field: 'date', direction: 'asc' }, limitCount),
-  getUpcoming: (limitCount = 10) => getDocuments('zoomSessions', [{ field: 'status', operator: '==', value: 'upcoming' }], { field: 'date', direction: 'asc' }, limitCount)
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('zoomSessions', filters, { field: 'date', direction: 'asc' }, limitCount);
+  },
+  getUpcoming: (limitCount = 10, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: 'upcoming' }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('zoomSessions', filters, { field: 'date', direction: 'asc' }, limitCount);
+  }
 };
 
 // Batches Service
 export const batchesService = {
-  getAll: (limitCount = null) => getDocuments('batches', [], { field: 'createdAt', direction: 'desc' }, limitCount),
-  getCount: () => getDocumentCount('batches'),
+  getAll: (limitCount = null, organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('batches', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('batches', filters);
+  },
   getById: (id) => getDocument('batches', id),
   create: (batchData) => {
     clearCache('batches');
@@ -441,7 +580,13 @@ export const batchesService = {
     return deleteDocument('batches', id);
   },
   getByCourse: (courseId, limitCount = null) => getDocuments('batches', [{ field: 'courseId', operator: '==', value: courseId }], { field: 'number', direction: 'asc' }, limitCount),
-  getByStatus: (status, limitCount = null) => getDocuments('batches', [{ field: 'status', operator: '==', value: status }], null, limitCount)
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('batches', filters, null, limitCount);
+  }
 };
 
 

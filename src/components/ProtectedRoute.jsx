@@ -15,7 +15,7 @@ const ProtectedRoute = ({
   requireRole = null,
   redirectTo = '/sign-in' 
 }) => {
-  const { user, loading, isAdmin, isStudent } = useAuth();
+  const { user, loading, isAdmin, isStudent, isSuperAdmin, isTeacher } = useAuth();
 
   // Show loading state while checking authentication
   if (loading) {
@@ -38,12 +38,48 @@ const ProtectedRoute = ({
   }
 
   // Check if specific role is required
+  if (requireRole === 'superAdmin' && !isSuperAdmin()) {
+    // Redirect based on user's actual role
+    if (isAdmin()) {
+      return <Navigate to="/organization/dashboard" replace />;
+    } else if (isStudent()) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <Navigate to="/sign-in" replace />;
+  }
+
   if (requireRole === 'admin' && !isAdmin()) {
-    return <Navigate to="/dashboard" replace />;
+    // Redirect based on user's actual role
+    if (isSuperAdmin()) {
+      return <Navigate to="/superadmin/dashboard" replace />;
+    } else if (isStudent()) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <Navigate to="/sign-in" replace />;
   }
 
   if (requireRole === 'student' && !isStudent()) {
-    return <Navigate to="/admin/dashboard" replace />;
+    // Redirect based on user's actual role
+    if (isSuperAdmin()) {
+      return <Navigate to="/superadmin/dashboard" replace />;
+    } else if (isAdmin()) {
+      return <Navigate to="/organization/dashboard" replace />;
+    } else if (isTeacher()) {
+      return <Navigate to="/teacher/dashboard" replace />;
+    }
+    return <Navigate to="/sign-in" replace />;
+  }
+
+  if (requireRole === 'teacher' && !isTeacher()) {
+    // Redirect based on user's actual role
+    if (isSuperAdmin()) {
+      return <Navigate to="/superadmin/dashboard" replace />;
+    } else if (isAdmin()) {
+      return <Navigate to="/organization/dashboard" replace />;
+    } else if (isStudent()) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <Navigate to="/sign-in" replace />;
   }
 
   // Access granted
