@@ -267,7 +267,17 @@
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   animation: slideUp 0.3s;
+  display: flex;
+  flex-direction: column;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar for modal-content */
+.modal-content::-webkit-scrollbar {
+  display: none;
 }
 
 .modal-header {
@@ -307,6 +317,9 @@
 
 .modal-body {
   padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-footer {
