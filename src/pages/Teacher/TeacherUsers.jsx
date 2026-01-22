@@ -18,11 +18,13 @@ const TeacherUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterRole, setFilterRole] = useState('all'); // Default to 'all' to show students
+  const [filterClass, setFilterClass] = useState('all'); // Filter by class
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [allTeacherCourses, setAllTeacherCourses] = useState([]); // Store all teacher courses (all statuses) for student filtering
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,7 +44,14 @@ const TeacherUsers = () => {
     const userRole = user.role ? user.role.toLowerCase() : 'student';
     // Filter by role: only students are shown (teachers cannot see admins)
     const matchesRole = filterRole === 'all' || userRole === 'student';
-    return matchesSearch && matchesStatus && matchesRole;
+    
+    // Filter by class
+    const matchesClass = filterClass === 'all' || (() => {
+      const studentClassIds = user.classIds || user.batchIds || [];
+      return studentClassIds.includes(filterClass);
+    })();
+    
+    return matchesSearch && matchesStatus && matchesRole && matchesClass;
   });
 
   // Separate list for students (teachers can only see students)
@@ -52,17 +61,59 @@ const TeacherUsers = () => {
   });
 
   useEffect(() => {
-    loadUsers();
-    loadCourses();
+    // Load courses first, then load users (users filtering depends on courses)
+    const loadData = async () => {
+      try {
+        // Load courses first and wait for completion
+        await loadCourses();
+        // Small delay to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 200));
+        // Then load users (which depends on allTeacherCourses state)
+        await loadUsers();
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load data. Please refresh the page.');
+      }
+    };
+    if (currentUser) {
+      loadData();
+    }
   }, [currentUser]);
 
   const loadCourses = async () => {
     try {
       const orgId = getOrganizationId();
       const data = await coursesService.getAll(1000, orgId);
-      setCourses(data.filter(c => c.status === 'active' || c.status === 'published')); // Only active/published classes
+      
+      // Filter courses: only show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
+      const teacherId = currentUser?.uid;
+      const teacherName = currentUser?.name;
+      const teacherCourses = (data || []).filter(course => {
+        // Show if instructor name matches teacher name
+        if (course.instructor && teacherName && course.instructor === teacherName) {
+          return true;
+        }
+        // Show if teacher created this course
+        if (course.createdBy === teacherId) {
+          return true;
+        }
+        // Show if teacher is assigned to this course
+        if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+          return course.assignedTeachers.includes(teacherId);
+        }
+        return false;
+      });
+      
+      // Store all teacher courses (all statuses) for student filtering
+      setAllTeacherCourses(teacherCourses);
+      
+      // Only show active/published classes in the UI
+      setCourses(teacherCourses.filter(c => c.status === 'active' || c.status === 'published'));
+      
+      return teacherCourses; // Return all courses for filtering students
     } catch (err) {
       console.error('Error loading classes:', err);
+      return [];
     }
   };
 
@@ -83,9 +134,33 @@ const TeacherUsers = () => {
       
       // Load users filtered by organization
       // Teachers can only see students from their organization
+      // IMPORTANT: Must filter by role='student' in the query to match Firestore rules
       const orgId = getOrganizationId();
-      const data = await usersService.getAll(1000, orgId, !forceRefresh);
-      console.log('Raw users loaded from Firestore:', data.length, orgId ? `(org: ${orgId})` : '(all orgs)');
+      
+      // Clear cache if forcing refresh to ensure fresh data
+      if (forceRefresh) {
+        clearCache('users');
+      }
+      
+      // Use getByRole to ensure we only query students (required by Firestore rules)
+      // This query filters by both role='student' AND organizationId to match Firestore security rules
+      let data = [];
+      try {
+        // Don't use cache if forcing refresh
+        data = await usersService.getByRole('student', 1000, orgId, !forceRefresh);
+        console.log('✅ Raw users loaded from Firestore:', data.length, orgId ? `(org: ${orgId})` : '(all orgs)');
+      } catch (err) {
+        console.error('❌ Error loading students:', err);
+        setError('Failed to load students. Please check your permissions.');
+        if (showLoading) {
+          setLoading(false);
+        }
+        return;
+      }
+      
+      if (data.length === 0) {
+        console.warn('⚠️ No students found in organization:', orgId);
+      }
       
       // Normalize role field to lowercase for consistency
       const normalizedData = data.map(user => ({
@@ -93,8 +168,88 @@ const TeacherUsers = () => {
         role: user.role ? user.role.toLowerCase() : 'student'
       }));
       
-      // Filter: Only show students from the current teacher's organization
+      // Filter: Only show students enrolled in teacher's assigned classes
       const currentOrgId = getOrganizationId();
+      const teacherId = currentUser?.uid;
+      const teacherName = currentUser?.name;
+      
+      // Get ALL teacher's course IDs (including draft classes) for student filtering
+      // Try to use already loaded courses first (from allTeacherCourses state), then reload if needed
+      let allTeacherCoursesData = allTeacherCourses || [];
+      let allCoursesData = null;
+      
+      // If we don't have courses loaded yet, fetch them
+      if (!allTeacherCoursesData || allTeacherCoursesData.length === 0) {
+        console.log('📚 No courses in state, loading from Firestore...');
+        allCoursesData = await coursesService.getAll(1000, orgId).catch(err => {
+          console.error('❌ Error loading courses for student filtering:', err);
+          setError('Failed to load courses. Please try again.');
+          return [];
+        });
+        
+        if (!allCoursesData || allCoursesData.length === 0) {
+          console.warn('⚠️ No courses found in organization');
+          setUsers([]);
+          if (showLoading) {
+            setLoading(false);
+          }
+          return;
+        }
+        
+        // Filter to get teacher's courses
+        allTeacherCoursesData = (allCoursesData || []).filter(course => {
+          // Show if instructor name matches teacher name
+          if (course.instructor && teacherName && course.instructor === teacherName) {
+            return true;
+          }
+          // Show if teacher created this course
+          if (course.createdBy === teacherId) {
+            return true;
+          }
+          // Show if teacher is assigned to this course
+          if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+            return course.assignedTeachers.includes(teacherId);
+          }
+          return false;
+        });
+      } else {
+        console.log('✅ Using courses from state:', allTeacherCoursesData.length);
+      }
+      
+      console.log('🔍 Course filtering debug:', {
+        totalCoursesInOrg: allCoursesData ? allCoursesData.length : 'loaded from state/cache',
+        teacherCoursesFound: allTeacherCoursesData.length,
+        teacherId,
+        teacherName,
+        sampleCourse: allTeacherCoursesData[0] ? {
+          id: allTeacherCoursesData[0].id,
+          instructor: allTeacherCoursesData[0].instructor,
+          createdBy: allTeacherCoursesData[0].createdBy,
+          assignedTeachers: allTeacherCoursesData[0].assignedTeachers
+        } : null
+      });
+      
+      const teacherCourseIds = allTeacherCoursesData.map(course => course.id);
+      console.log('📊 Teacher course IDs for filtering students:', teacherCourseIds);
+      console.log('📚 Teacher courses:', allTeacherCoursesData.map(c => ({ 
+        id: c.id, 
+        title: c.title, 
+        instructor: c.instructor, 
+        assignedTeachers: c.assignedTeachers,
+        createdBy: c.createdBy
+      })));
+      console.log('👤 Teacher info:', { teacherId, teacherName, currentOrgId });
+      
+      // If teacher has no courses, show message but don't filter students (they'll be empty anyway)
+      if (teacherCourseIds.length === 0) {
+        console.warn('⚠️ Teacher has no assigned courses. No students will be shown.');
+        setUsers([]);
+        if (showLoading) {
+          setLoading(false);
+        }
+        return;
+      }
+      
       const filteredData = normalizedData.filter(user => {
         // Must belong to the same organization
         const userOrgId = user.organizationId || '';
@@ -104,20 +259,149 @@ const TeacherUsers = () => {
         const role = user.role ? user.role.toLowerCase() : 'student';
         const isStudent = role === 'student';
         
-        return matchesOrg && isStudent;
+        if (!matchesOrg || !isStudent) {
+          if (!matchesOrg) {
+            console.log(`❌ Student "${user.name || user.email}" - Organization mismatch:`, {
+              userOrgId,
+              currentOrgId
+            });
+          }
+          return false;
+        }
+        
+        // Check if student is enrolled in any of teacher's classes
+        // Students can have classIds or batchIds (for backward compatibility)
+        const studentClassIds = user.classIds || user.batchIds || [];
+        
+        // Ensure both arrays are properly formatted
+        const normalizedStudentClassIds = Array.isArray(studentClassIds) ? studentClassIds : [];
+        const normalizedTeacherCourseIds = Array.isArray(teacherCourseIds) ? teacherCourseIds : [];
+        
+        // Normalize IDs to strings for comparison (handles number/string mismatches)
+        const normalizedStudentIds = normalizedStudentClassIds.map(id => String(id).trim()).filter(id => id);
+        const normalizedCourseIds = normalizedTeacherCourseIds.map(id => String(id).trim()).filter(id => id);
+        
+        // If student has no classIds, they won't match any teacher classes
+        if (normalizedStudentIds.length === 0) {
+          console.log(`⚠️ Student "${user.name || user.email}" has no classIds assigned.`, {
+            classIds: user.classIds,
+            batchIds: user.batchIds
+          });
+          return false;
+        }
+        
+        // Check if any student class ID matches any teacher course ID (exact match first, then case-insensitive)
+        const isEnrolledInTeacherClass = normalizedStudentIds.some(studentId => 
+          normalizedCourseIds.some(courseId => {
+            // Try exact match first (most common case)
+            if (studentId === courseId) {
+              return true;
+            }
+            // Try case-insensitive match
+            if (studentId.toLowerCase() === courseId.toLowerCase()) {
+              return true;
+            }
+            return false;
+          })
+        );
+        
+        if (isEnrolledInTeacherClass) {
+          const matchingIds = normalizedStudentIds.filter(studentId => 
+            normalizedCourseIds.some(courseId => {
+              if (studentId === courseId) return true;
+              if (studentId.toLowerCase() === courseId.toLowerCase()) return true;
+              return false;
+            })
+          );
+          console.log(`✅ Student "${user.name || user.email}" is enrolled in teacher's class.`, {
+            studentClassIds: normalizedStudentClassIds,
+            teacherCourseIds: normalizedTeacherCourseIds,
+            normalizedStudentIds,
+            normalizedCourseIds,
+            matchingIds
+          });
+        } else {
+          // Log all students that don't match to help debug
+          console.log(`❌ Student "${user.name || user.email}" is NOT enrolled in teacher's classes.`, {
+            studentClassIds: normalizedStudentClassIds,
+            teacherCourseIds: normalizedTeacherCourseIds,
+            normalizedStudentIds,
+            normalizedCourseIds,
+            comparison: normalizedStudentIds.map(sId => ({
+              studentId: sId,
+              matches: normalizedCourseIds.filter(cId => 
+                sId === cId || sId.toLowerCase() === cId.toLowerCase()
+              )
+            }))
+          });
+        }
+        
+        return isEnrolledInTeacherClass;
       });
       
-      console.log(`Filtered to ${filteredData.length} students from organization ${currentOrgId}`);
+      console.log(`📊 Filtered to ${filteredData.length} students from organization ${currentOrgId}`);
+      
+      // Detailed analysis of why students were filtered
+      const studentsWithClasses = normalizedData.filter(u => {
+        const role = u.role ? u.role.toLowerCase() : 'student';
+        const isStudent = role === 'student';
+        const userOrgId = u.organizationId || '';
+        const matchesOrg = userOrgId === currentOrgId;
+        const studentClassIds = u.classIds || u.batchIds || [];
+        return isStudent && matchesOrg && Array.isArray(studentClassIds) && studentClassIds.length > 0;
+      });
+      
+      const studentsWithoutClasses = normalizedData.filter(u => {
+        const role = u.role ? u.role.toLowerCase() : 'student';
+        const isStudent = role === 'student';
+        const userOrgId = u.organizationId || '';
+        const matchesOrg = userOrgId === currentOrgId;
+        const studentClassIds = u.classIds || u.batchIds || [];
+        return isStudent && matchesOrg && (!Array.isArray(studentClassIds) || studentClassIds.length === 0);
+      });
+      
+      console.log(`📈 Summary:`, {
+        totalUsersInOrg: normalizedData.length,
+        totalStudentsInOrg: normalizedData.filter(u => {
+          const role = u.role ? u.role.toLowerCase() : 'student';
+          return role === 'student';
+        }).length,
+        studentsWithClasses: studentsWithClasses.length,
+        studentsWithoutClasses: studentsWithoutClasses.length,
+        teacherCourses: teacherCourseIds.length,
+        teacherCourseIds: teacherCourseIds,
+        studentsEnrolledInTeacherClasses: filteredData.length,
+        studentsFilteredOut: normalizedData.length - filteredData.length,
+        sampleStudent: filteredData.length > 0 ? {
+          name: filteredData[0].name,
+          email: filteredData[0].email,
+          classIds: filteredData[0].classIds || filteredData[0].batchIds || []
+        } : null,
+        sampleNonMatchingStudent: normalizedData.length > filteredData.length ? {
+          name: normalizedData.find(u => {
+            const role = u.role ? u.role.toLowerCase() : 'student';
+            const isStudent = role === 'student';
+            const studentClassIds = u.classIds || u.batchIds || [];
+            const normalizedStudentClassIds = Array.isArray(studentClassIds) ? studentClassIds : [];
+            return isStudent && normalizedStudentClassIds.length > 0 && 
+                   !normalizedStudentClassIds.some(id => teacherCourseIds.includes(String(id).trim()));
+          })?.name,
+          classIds: normalizedData.find(u => {
+            const role = u.role ? u.role.toLowerCase() : 'student';
+            const isStudent = role === 'student';
+            const studentClassIds = u.classIds || u.batchIds || [];
+            const normalizedStudentClassIds = Array.isArray(studentClassIds) ? studentClassIds : [];
+            return isStudent && normalizedStudentClassIds.length > 0 && 
+                   !normalizedStudentClassIds.some(id => teacherCourseIds.includes(String(id).trim()));
+          })?.classIds
+        } : null
+      });
       
       // Store filtered users in state
       setUsers(filteredData);
       
       // Debug: Log student roles
       console.log('Total students after filtering:', filteredData.length);
-        console.log('Students by role:', {
-          students: filteredData.filter(u => u.role === 'student').length,
-          filteredOut: normalizedData.length - filteredData.length
-        });
       console.log('All users with roles:', filteredData.map(u => ({ 
         id: u.id, 
         email: u.email, 
@@ -714,42 +998,18 @@ const TeacherUsers = () => {
                 </>
               )}
             </div>
-            <button className="add-user-btn" onClick={() => setShowAddModal(true)}>
-              <FaPlus className="btn-icon" />
-              Add Student
-            </button>
+            {/* Teachers cannot create students - button removed */}
           </div>
         </div>
 
         {/* Stats Cards */}
         <div className="users-stats-grid">
           <div 
-            className={`users-stat-card ${filterRole === 'all' && filterStatus === 'all' ? 'active' : ''}`}
-            onClick={() => {
-              setFilterRole('all');
-              setFilterStatus('all');
-            }}
-            title="Show all users"
-            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-            onMouseEnter={(e) => {
-              if (filterRole !== 'all' || filterStatus !== 'all') {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = '';
-              e.currentTarget.style.boxShadow = '';
-            }}
-          >
-            <div className="stat-value">{stats.total}</div>
-            <div className="stat-label">Total Students</div>
-          </div>
-          <div 
             className={`users-stat-card ${filterRole === 'student' ? 'active' : ''}`}
             onClick={() => {
               setFilterRole('student');
               setFilterStatus('all');
+              setFilterClass('all');
             }}
             title="Show only students"
             style={{ cursor: 'pointer', transition: 'all 0.2s' }}
@@ -772,6 +1032,7 @@ const TeacherUsers = () => {
             onClick={() => {
               setFilterStatus('active');
               setFilterRole('all'); // Show all students when clicking active
+              setFilterClass('all');
             }}
             title="Show active users"
             style={{ cursor: 'pointer', transition: 'all 0.2s' }}
@@ -816,6 +1077,31 @@ const TeacherUsers = () => {
                 <option value="inactive">Inactive</option>
               </select>
             </div>
+            <div className="filter-item">
+              <FaFilter className="filter-icon" />
+              <select 
+                className="filter-select"
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+              >
+                <option value="all">All Classes</option>
+                {allTeacherCourses && allTeacherCourses.length > 0 ? (
+                  allTeacherCourses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.title || course.name || 'Untitled Class'}
+                    </option>
+                  ))
+                ) : (
+                  courses && courses.length > 0 ? (
+                    courses.map(course => (
+                      <option key={course.id} value={course.id}>
+                        {course.title || course.name || 'Untitled Class'}
+                      </option>
+                    ))
+                  ) : null
+                )}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -848,13 +1134,13 @@ const TeacherUsers = () => {
                   <th>Classes</th>
                   <th>Status</th>
                   <th>Joined</th>
-                  <th>Actions</th>
+                  {/* Actions column removed - teachers can only view students */}
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                      <td colSpan="8" className="empty-state">
+                      <td colSpan="7" className="empty-state">
                       No students found
                     </td>
                   </tr>
@@ -891,24 +1177,7 @@ const TeacherUsers = () => {
                         </span>
                       </td>
                       <td>{formatDate(user.createdAt || user.joined)}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="action-btn edit-btn" 
-                            title="Edit"
-                            onClick={() => handleEditUser(user)}
-                          >
-                            <FaEdit />
-                          </button>
-                          <button 
-                            className="action-btn delete-btn" 
-                            title="Delete"
-                            onClick={() => handleDeleteUser(user)}
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </td>
+                      {/* Actions removed - teachers can only view students, not manage them */}
                     </tr>
                   ))
                 )}

@@ -329,12 +329,12 @@ export const usersService = {
     clearCache('users');
     return deleteDocument('users', id);
   },
-  getByRole: (role, limitCount = null, organizationId = null) => {
+  getByRole: (role, limitCount = null, organizationId = null, useCache = true) => {
     const filters = [{ field: 'role', operator: '==', value: role.toLowerCase() }];
     if (organizationId) {
       filters.push({ field: 'organizationId', operator: '==', value: organizationId });
     }
-    return getDocuments('users', filters, null, limitCount);
+    return getDocuments('users', filters, null, limitCount, useCache);
   },
   getByStatus: (status, limitCount = null, organizationId = null) => {
     const filters = [{ field: 'status', operator: '==', value: status }];
@@ -351,9 +351,10 @@ export const usersService = {
 
 // Courses Service
 export const coursesService = {
-  getAll: (limitCount = null, organizationId = null) => {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
-    return getDocuments('courses', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+    // Don't use orderBy to avoid index requirement - we can sort client-side if needed
+    return getDocuments('courses', filters, null, limitCount, useCache);
   },
   getCount: (organizationId = null) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];

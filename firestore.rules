@@ -61,6 +61,11 @@ service cloud.firestore {
       return getUserData().organizationId;
     }
     
+    // Helper function to get user's name
+    function getUserName() {
+      return getUserData().name;
+    }
+    
     // Helper function to check if document belongs to user's organization
     function belongsToUserOrganization() {
       return resource.data.organizationId == getUserOrganizationId();
@@ -94,15 +99,17 @@ service cloud.firestore {
                             (resource.data.organizationId == getUserOrganizationId() || 
                              request.resource.data.organizationId == getUserOrganizationId());
       
-      // Teachers can read users (students) in their organization
+      // Teachers can read only students enrolled in their assigned classes
+      // Allow list queries: teachers can query students by role and organizationId
+      // The actual filtering by class enrollment is done client-side
+      // For list queries, Firestore requires the query to filter on the same fields the rule checks
       allow read: if isTeacher() && 
                      resource.data.organizationId == getUserOrganizationId() &&
-                     resource.data.role == 'student';
+                     (resource.data.role == 'student' || resource.data.role == 'Student' || resource.data.role == 'STUDENT');
       
-      // Teachers can create and update students in their organization
-      allow create, update: if isTeacher() && 
-                               request.resource.data.organizationId == getUserOrganizationId() &&
-                               request.resource.data.role == 'student';
+      // Teachers cannot create students - removed create permission
+      
+      // Teachers cannot update students - removed update permission
     }
     
     // Recordings collection
@@ -206,18 +213,22 @@ service cloud.firestore {
                       resource.data.organizationId == getUserOrganizationId();
       
       // Teachers can read courses in their organization
+      // For list queries, we allow reading by organizationId, then filter client-side
+      // The client-side filtering ensures only courses where instructor matches, createdBy matches, or assignedTeachers includes the teacher
       allow read: if isTeacher() && 
-                     (resource.data.organizationId == getUserOrganizationId() || 
-                      !resource.data.organizationId);
+                     resource.data.organizationId == getUserOrganizationId();
       
-      // Teachers can create courses in their organization
+      // Teachers can create courses in their organization (with createdBy set to their UID)
       allow create: if isTeacher() && 
                        request.resource.data.organizationId != null &&
-                       request.resource.data.organizationId == getUserOrganizationId();
+                       request.resource.data.organizationId == getUserOrganizationId() &&
+                       request.resource.data.createdBy == request.auth.uid;
       
-      // Teachers can update and delete courses in their organization
+      // Teachers can update and delete courses where instructor name matches their name or they created it
       allow update, delete: if isTeacher() && 
-                               resource.data.organizationId == getUserOrganizationId();
+                               resource.data.organizationId == getUserOrganizationId() &&
+                               (resource.data.instructor == getUserName() ||
+                                resource.data.createdBy == request.auth.uid);
     }
     
     // Batches collection

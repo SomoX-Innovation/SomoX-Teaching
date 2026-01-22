@@ -25,7 +25,8 @@ const OrganizationCourses = () => {
     duration: '',
     price: '',
     status: 'draft',
-    students: 0
+    students: 0,
+    assignedTeachers: [] // Array of teacher UIDs assigned to this course
   });
 
   useEffect(() => {
@@ -113,7 +114,8 @@ const OrganizationCourses = () => {
       duration: course.duration || '',
       price: course.price || '',
       status: course.status || 'draft',
-      students: course.students || 0
+      students: course.students || 0,
+      assignedTeachers: course.assignedTeachers || []
     });
     setInstructorSearchTerm(instructorName);
     setShowInstructorDropdown(false);
@@ -168,7 +170,8 @@ const OrganizationCourses = () => {
       duration: '',
       price: '',
       status: 'draft',
-      students: 0
+      students: 0,
+      assignedTeachers: []
     });
     setInstructorSearchTerm('');
     setShowInstructorDropdown(false);
@@ -479,6 +482,86 @@ const OrganizationCourses = () => {
                   </small>
                 )}
               </div>
+              <div className="form-group">
+                <label>Assign Teachers (Optional)</label>
+                <div style={{ 
+                  border: '1px solid #e5e7eb', 
+                  borderRadius: '0.5rem', 
+                  padding: '0.75rem',
+                  minHeight: '100px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  backgroundColor: '#f9fafb'
+                }}>
+                  {teachers.length === 0 ? (
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No teachers available</p>
+                  ) : (
+                    teachers.map(teacher => {
+                      const isAssigned = formData.assignedTeachers?.includes(teacher.id);
+                      return (
+                        <div
+                          key={teacher.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0.5rem',
+                            marginBottom: '0.5rem',
+                            backgroundColor: isAssigned ? '#dbeafe' : 'white',
+                            border: `1px solid ${isAssigned ? '#3b82f6' : '#e5e7eb'}`,
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onClick={() => {
+                            const currentAssigned = formData.assignedTeachers || [];
+                            if (isAssigned) {
+                              setFormData({
+                                ...formData,
+                                assignedTeachers: currentAssigned.filter(id => id !== teacher.id)
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                assignedTeachers: [...currentAssigned, teacher.id]
+                              });
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isAssigned) {
+                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isAssigned) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={() => {}} // Handled by parent onClick
+                            style={{ marginRight: '0.75rem', cursor: 'pointer' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '500', color: '#111827' }}>
+                              {teacher.name || 'Unknown'}
+                            </div>
+                            {teacher.email && (
+                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                {teacher.email}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <small style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
+                  Select teachers who should have access to this class. Teachers can only see classes they created or are assigned to.
+                </small>
+              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Duration</label>
@@ -653,6 +736,86 @@ const OrganizationCourses = () => {
                     Selected: <strong>{formData.instructor}</strong>
                   </small>
                 )}
+              </div>
+              <div className="form-group">
+                <label>Assign Teachers (Optional)</label>
+                <div style={{ 
+                  border: '1px solid #e5e7eb', 
+                  borderRadius: '0.5rem', 
+                  padding: '0.75rem',
+                  minHeight: '100px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  backgroundColor: '#f9fafb'
+                }}>
+                  {teachers.length === 0 ? (
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No teachers available</p>
+                  ) : (
+                    teachers.map(teacher => {
+                      const isAssigned = formData.assignedTeachers?.includes(teacher.id);
+                      return (
+                        <div
+                          key={teacher.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0.5rem',
+                            marginBottom: '0.5rem',
+                            backgroundColor: isAssigned ? '#dbeafe' : 'white',
+                            border: `1px solid ${isAssigned ? '#3b82f6' : '#e5e7eb'}`,
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onClick={() => {
+                            const currentAssigned = formData.assignedTeachers || [];
+                            if (isAssigned) {
+                              setFormData({
+                                ...formData,
+                                assignedTeachers: currentAssigned.filter(id => id !== teacher.id)
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                assignedTeachers: [...currentAssigned, teacher.id]
+                              });
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isAssigned) {
+                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isAssigned) {
+                              e.currentTarget.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={() => {}} // Handled by parent onClick
+                            style={{ marginRight: '0.75rem', cursor: 'pointer' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '500', color: '#111827' }}>
+                              {teacher.name || 'Unknown'}
+                            </div>
+                            {teacher.email && (
+                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                {teacher.email}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <small style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
+                  Select teachers who should have access to this class. Teachers can only see classes they created or are assigned to.
+                </small>
               </div>
               <div className="form-row">
                 <div className="form-group">

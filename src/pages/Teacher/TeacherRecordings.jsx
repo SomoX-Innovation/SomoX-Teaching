@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import './TeacherRecordings.css';
 
 const TeacherRecordings = () => {
-  const { getOrganizationId } = useAuth();
+  const { user, getOrganizationId } = useAuth();
   const [recordings, setRecordings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,6 +17,7 @@ const TeacherRecordings = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [users, setUsers] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -39,7 +40,27 @@ const TeacherRecordings = () => {
     try {
       const orgId = getOrganizationId();
       const data = await coursesService.getAll(1000, orgId);
-      setCourses(data || []);
+      
+      // Filter courses: only show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
+      const teacherId = user?.uid;
+      const teacherName = user?.name;
+      const teacherCourses = (data || []).filter(course => {
+        // Show if instructor name matches teacher name
+        if (course.instructor && teacherName && course.instructor === teacherName) {
+          return true;
+        }
+        // Show if teacher created this course
+        if (course.createdBy === teacherId) {
+          return true;
+        }
+        // Show if teacher is assigned to this course
+        if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+          return course.assignedTeachers.includes(teacherId);
+        }
+        return false;
+      });
+      
+      setCourses(teacherCourses || []);
     } catch (err) {
       console.error('Error loading classes:', err);
     }
@@ -48,10 +69,19 @@ const TeacherRecordings = () => {
   const loadUsers = async () => {
     try {
       const orgId = getOrganizationId();
-      const data = await usersService.getAll(1000, orgId);
-      setUsers(data || []);
+      const data = await usersService.getAll(1000, orgId).catch(err => {
+        console.error('Error loading users:', err);
+        return [];
+      });
+      // Filter to only show students (teachers can only see students)
+      const students = (data || []).filter(user => {
+        const role = user.role ? user.role.toLowerCase() : 'student';
+        return role === 'student';
+      });
+      setUsers(students);
     } catch (err) {
       console.error('Error loading users:', err);
+      setUsers([]);
     }
   };
 
@@ -59,8 +89,12 @@ const TeacherRecordings = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await recordingsService.getAll();
-      setRecordings(data);
+      const orgId = getOrganizationId();
+      const data = await recordingsService.getAll(1000, orgId).catch(err => {
+        console.error('Error loading recordings:', err);
+        return [];
+      });
+      setRecordings(data || []);
     } catch (err) {
       setError('Failed to load recordings. Please try again.');
       console.error('Error loading recordings:', err);

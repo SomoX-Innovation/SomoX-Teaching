@@ -163,11 +163,13 @@ const SuperAdminDashboard = () => {
             const Icon = stat.icon;
             return (
               <div key={index} className="superadmin-stat-card">
-                <div className="stat-icon-wrapper" style={{ background: `${stat.color}15` }}>
-                  <Icon className="stat-icon" style={{ color: stat.color }} />
+                <div className="stat-header">
+                  <div className="stat-icon-wrapper" style={{ background: `${stat.color}15` }}>
+                    <Icon className="stat-icon" style={{ color: stat.color }} />
+                  </div>
+                  <div className="stat-value">{stat.value}</div>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-value">{stat.value}</div>
                   <div className="stat-label">{stat.title}</div>
                   <div className="stat-subtitle">{stat.subtitle}</div>
                 </div>

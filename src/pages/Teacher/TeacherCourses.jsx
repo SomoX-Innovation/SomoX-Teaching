@@ -39,12 +39,33 @@ const TeacherCourses = () => {
           console.error('Error loading courses:', err);
           return [];
         }),
-        usersService.getAll(1000, orgId).catch(err => {
+        // Teachers can only query students, not all users
+        usersService.getByRole('student', 1000, orgId).catch(err => {
           console.error('Error loading users:', err);
           return [];
         })
       ]);
-      setCourses(coursesData || []);
+      
+      // Filter courses: show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
+      const teacherId = user?.uid;
+      const teacherName = user?.name;
+      const filteredCourses = (coursesData || []).filter(course => {
+        // Show if instructor name matches teacher name
+        if (course.instructor && teacherName && course.instructor === teacherName) {
+          return true;
+        }
+        // Show if teacher created this course
+        if (course.createdBy === teacherId) {
+          return true;
+        }
+        // Show if teacher is assigned to this course
+        if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+          return course.assignedTeachers.includes(teacherId);
+        }
+        return false;
+      });
+      
+      setCourses(filteredCourses);
       setUsers(usersData || []);
     } catch (err) {
       setError('Failed to load data. Please try again.');
@@ -89,7 +110,8 @@ const TeacherCourses = () => {
       const courseData = {
         ...formData,
         instructor: user?.name || formData.instructor || 'Unknown Teacher',
-        organizationId: orgId // Add organizationId for teacher's courses
+        organizationId: orgId, // Add organizationId for teacher's courses
+        createdBy: user?.uid || null // Track who created this course
       };
       
       console.log('Creating course with data:', courseData);
@@ -128,7 +150,8 @@ const TeacherCourses = () => {
       const courseData = {
         ...formData,
         instructor: user?.name || formData.instructor || 'Unknown Teacher',
-        organizationId: orgId // Ensure organizationId is set
+        organizationId: orgId, // Ensure organizationId is set
+        createdBy: user?.uid || null // Maintain createdBy field
       };
       await coursesService.update(selectedCourse.id, courseData);
       await loadData();

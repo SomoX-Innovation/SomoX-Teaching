@@ -219,9 +219,9 @@ const TeacherDashboard = () => {
                   <div className={`stat-icon-wrapper stat-${stat.color}`}>
                     <IconComponent className="stat-icon" />
                   </div>
+                  <div className="stat-value">{stat.value}</div>
                 </div>
                 <div className="stat-body">
-                  <div className="stat-value">{stat.value}</div>
                   <div className="stat-label">{stat.label}</div>
                 </div>
               </div>
