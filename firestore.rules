@@ -225,10 +225,13 @@ service cloud.firestore {
                        request.resource.data.createdBy == request.auth.uid;
       
       // Teachers can update and delete courses where instructor name matches their name or they created it
+      // BUT teachers cannot change the instructor field - only admins can change it
       allow update, delete: if isTeacher() && 
                                resource.data.organizationId == getUserOrganizationId() &&
                                (resource.data.instructor == getUserName() ||
-                                resource.data.createdBy == request.auth.uid);
+                                resource.data.createdBy == request.auth.uid) &&
+                               // Prevent teachers from changing the instructor field
+                               (request.resource.data.instructor == resource.data.instructor);
     }
     
     // Batches collection

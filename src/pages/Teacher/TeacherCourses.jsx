@@ -146,12 +146,13 @@ const TeacherCourses = () => {
     try {
       setError(null);
       const orgId = getOrganizationId();
-      // Ensure instructor is set to current teacher's name
+      // Teachers cannot change the instructor field - preserve the original instructor
+      // Only admins can change the instructor field
       const courseData = {
         ...formData,
-        instructor: user?.name || formData.instructor || 'Unknown Teacher',
+        instructor: selectedCourse?.instructor || formData.instructor, // Preserve original instructor, don't allow teachers to change it
         organizationId: orgId, // Ensure organizationId is set
-        createdBy: user?.uid || null // Maintain createdBy field
+        createdBy: selectedCourse?.createdBy || user?.uid || null // Maintain createdBy field
       };
       await coursesService.update(selectedCourse.id, courseData);
       await loadData();
@@ -466,12 +467,22 @@ const TeacherCourses = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Instructor</label>
+                <label>Instructor (Read-only)</label>
                 <input
                   type="text"
                   value={formData.instructor}
-                  onChange={(e) => setFormData({...formData, instructor: e.target.value})}
+                  readOnly
+                  disabled
+                  style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    cursor: 'not-allowed',
+                    color: '#6b7280'
+                  }}
+                  title="Only administrators can change the instructor. Teachers cannot modify this field."
                 />
+                <small style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                  Only administrators can change the instructor
+                </small>
               </div>
               <div className="form-row">
                 <div className="form-group">
