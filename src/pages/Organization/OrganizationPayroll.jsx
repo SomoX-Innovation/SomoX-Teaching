@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FaDollarSign, FaSearch, FaPlus, FaEdit, FaTrash, FaSpinner, FaCheckCircle, FaTimesCircle, FaUsers, FaCalendar, FaFileInvoiceDollar, FaCalculator, FaPercentage, FaCheckDouble, FaSync } from 'react-icons/fa';
+import { FaDollarSign, FaSearch, FaPlus, FaEdit, FaTrash, FaSpinner, FaCheckCircle, FaTimesCircle, FaUsers, FaCalendar, FaFileInvoiceDollar, FaCalculator, FaPercentage, FaCheckDouble, FaSync, FaCog } from 'react-icons/fa';
 import { payrollService, usersService, paymentsService, coursesService, getDocument } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
 import { serverTimestamp } from 'firebase/firestore';
@@ -46,6 +47,15 @@ const OrganizationPayroll = () => {
   useEffect(() => {
     loadData();
     loadOrganizationSettings();
+  }, []);
+
+  // Reload settings when component becomes visible (user might have changed settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadOrganizationSettings();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const loadOrganizationSettings = async () => {
@@ -1097,9 +1107,16 @@ const OrganizationPayroll = () => {
                                         className="action-btn approve-btn"
                                         title="Mark as Paid"
                                         onClick={() => handleMarkAsPaid(payroll.id)}
+                                        style={{ 
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '0.5rem',
+                                          whiteSpace: 'nowrap'
+                                        }}
                                       >
-                                        <FaCheckCircle />
-                                        Mark as Paid
+                                        <FaCheckCircle style={{ flexShrink: 0 }} />
+                                        <span>Mark as Paid</span>
                                       </button>
                                     )}
                                     <button 
@@ -1444,10 +1461,27 @@ const OrganizationPayroll = () => {
                   )}
                 </div>
                 {formData.calculationType === 'automatic' && (
-                  <p className="form-description" style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    Automatically calculate salary from student payments for this teacher's courses. 
-                    Current split: {organizationSettings.teacherSalaryPercentage}% teacher, {organizationSettings.organizationSalaryPercentage}% organization.
-                  </p>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <p className="form-description" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                      Automatically calculate salary from student payments for this teacher's courses. 
+                      Current split: <strong>{organizationSettings.teacherSalaryPercentage}%</strong> teacher, <strong>{organizationSettings.organizationSalaryPercentage}%</strong> organization.
+                    </p>
+                    <Link 
+                      to="/organization/settings" 
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        fontSize: '0.875rem', 
+                        color: 'var(--primary)', 
+                        textDecoration: 'none',
+                        fontWeight: 500
+                      }}
+                    >
+                      <FaCog style={{ fontSize: '0.75rem' }} />
+                      Change percentage in Settings
+                    </Link>
+                  </div>
                 )}
               </div>
               <div className="form-row">
@@ -1574,6 +1608,22 @@ const OrganizationPayroll = () => {
                   <div className="summary-label">Organization Share ({organizationSettings.organizationSalaryPercentage}%)</div>
                   <div className="summary-value secondary">${autoCalcData.organizationShare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
+              </div>
+              <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                <Link 
+                  to="/organization/settings" 
+                  style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem', 
+                    color: 'var(--primary)', 
+                    textDecoration: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  <FaCog style={{ fontSize: '0.75rem' }} />
+                  Change percentage split in Settings
+                </Link>
               </div>
 
               {autoCalcData.courseBreakdown && autoCalcData.courseBreakdown.length > 0 && (

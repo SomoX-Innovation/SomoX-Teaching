@@ -291,12 +291,11 @@ const OrganizationSettings = () => {
                     value={settings.organizationSalaryPercentage}
                     onChange={(e) => handlePercentageChange('organization', e.target.value)}
                     className="percentage-input"
-                    readOnly
                   />
                   <span className="percentage-label">%</span>
                 </div>
                 <p className="form-description">
-                  Automatically calculated: {settings.organizationSalaryPercentage}% (100% - Teacher %)
+                  Percentage of student payments that goes to the organization. Automatically updates when Teacher % changes, or you can edit it directly (Teacher % will update automatically).
                 </p>
               </div>
               <div className="percentage-summary">
