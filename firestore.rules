@@ -82,8 +82,21 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
       
       // Organization admins can read their own organization
+      // Allow read if the document's id field matches user's organizationId OR if orgId matches
       allow read: if isOrganizationAdmin() && 
-                     resource.data.id == getUserOrganizationId();
+                     (resource.data.id == getUserOrganizationId() || 
+                      orgId == getUserOrganizationId());
+      
+      // Organization admins can update their own organization
+      allow update: if isOrganizationAdmin() && 
+                      (resource.data.id == getUserOrganizationId() || 
+                       orgId == getUserOrganizationId()) &&
+                      (request.resource.data.id == getUserOrganizationId() || 
+                       orgId == getUserOrganizationId());
+      
+      // Organization admins can create organizations (if needed)
+      allow create: if isOrganizationAdmin() && 
+                      request.resource.data.id == getUserOrganizationId();
     }
     
     // Users collection
@@ -266,6 +279,35 @@ service cloud.firestore {
       // Users can create payments for themselves
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Payroll collection
+    match /payroll/{payrollId} {
+      // SuperAdmin can read and write all payroll
+      allow read, write: if isSuperAdmin();
+      
+      // Organization admins can read payroll in their organization
+      // For list queries, allow reading if organizationId matches
+      allow read: if isOrganizationAdmin() && 
+                     (resource.data.organizationId == getUserOrganizationId() || 
+                      !exists(resource.data.organizationId));
+      
+      // Organization admins can create payroll in their organization
+      allow create: if isOrganizationAdmin() && 
+                      request.resource.data.organizationId == getUserOrganizationId();
+      
+      // Organization admins can update payroll in their organization
+      allow update: if isOrganizationAdmin() && 
+                      resource.data.organizationId == getUserOrganizationId() &&
+                      request.resource.data.organizationId == getUserOrganizationId();
+      
+      // Organization admins can delete payroll in their organization
+      allow delete: if isOrganizationAdmin() && 
+                      resource.data.organizationId == getUserOrganizationId();
+      
+      // Employees (teachers/admins) can read their own payroll records
+      allow read: if isAuthenticated() && 
+                     resource.data.employeeId == request.auth.uid;
     }
     
     // Deny all other access

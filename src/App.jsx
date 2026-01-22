@@ -25,6 +25,7 @@ import OrganizationTasks from './pages/Organization/OrganizationTasks';
 import OrganizationBlog from './pages/Organization/OrganizationBlog';
 import OrganizationAnalytics from './pages/Organization/OrganizationAnalytics';
 import OrganizationPayments from './pages/Organization/OrganizationPayments';
+import OrganizationPayroll from './pages/Organization/OrganizationPayroll';
 import OrganizationSettings from './pages/Organization/OrganizationSettings';
 import OrganizationProfile from './pages/Organization/OrganizationProfile';
 // Teacher Pages
@@ -250,6 +251,14 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <OrganizationPayments />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/organization/payroll" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="admin">
+                    <OrganizationPayroll />
                   </ProtectedRoute>
                 } 
               />

@@ -384,9 +384,9 @@ export const coursesService = {
 
 // Recordings Service
 export const recordingsService = {
-  getAll: (limitCount = null, organizationId = null) => {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
-    return getDocuments('recordings', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+    return getDocuments('recordings', filters, { field: 'createdAt', direction: 'desc' }, limitCount, useCache);
   },
   getCount: (organizationId = null) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
@@ -423,9 +423,9 @@ export const recordingsService = {
 
 // Tasks Service
 export const tasksService = {
-  getAll: (limitCount = null, organizationId = null) => {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
-    return getDocuments('tasks', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+    return getDocuments('tasks', filters, { field: 'createdAt', direction: 'desc' }, limitCount, useCache);
   },
   getCount: (organizationId = null) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
@@ -456,9 +456,9 @@ export const tasksService = {
 
 // Blog Posts Service
 export const blogService = {
-  getAll: (limitCount = null, organizationId = null) => {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
-    return getDocuments('blogPosts', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+    return getDocuments('blogPosts', filters, { field: 'createdAt', direction: 'desc' }, limitCount, useCache);
   },
   getCount: (organizationId = null) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
@@ -488,9 +488,9 @@ export const blogService = {
 
 // Payments Service
 export const paymentsService = {
-  getAll: (limitCount = null, organizationId = null) => {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
-    return getDocuments('payments', filters, { field: 'createdAt', direction: 'desc' }, limitCount);
+    return getDocuments('payments', filters, { field: 'createdAt', direction: 'desc' }, limitCount, useCache);
   },
   getCount: (organizationId = null) => {
     const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
@@ -587,6 +587,52 @@ export const batchesService = {
       filters.push({ field: 'organizationId', operator: '==', value: organizationId });
     }
     return getDocuments('batches', filters, null, limitCount);
+  }
+};
+
+// Payroll Service
+export const payrollService = {
+  getAll: (limitCount = null, organizationId = null, useCache = true) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('payroll', filters, { field: 'payPeriod', direction: 'desc' }, limitCount, useCache);
+  },
+  getCount: (organizationId = null) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocumentCount('payroll', filters);
+  },
+  getById: (id) => getDocument('payroll', id),
+  create: (payrollData) => {
+    clearCache('payroll');
+    return createDocument('payroll', payrollData);
+  },
+  update: (id, payrollData) => {
+    clearCache('payroll');
+    return updateDocument('payroll', id, payrollData);
+  },
+  delete: (id) => {
+    clearCache('payroll');
+    return deleteDocument('payroll', id);
+  },
+  getByEmployee: (employeeId, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'employeeId', operator: '==', value: employeeId }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('payroll', filters, { field: 'payPeriod', direction: 'desc' }, limitCount);
+  },
+  getByStatus: (status, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'status', operator: '==', value: status }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('payroll', filters, { field: 'payPeriod', direction: 'desc' }, limitCount);
+  },
+  getByPayPeriod: (payPeriod, limitCount = null, organizationId = null) => {
+    const filters = [{ field: 'payPeriod', operator: '==', value: payPeriod }];
+    if (organizationId) {
+      filters.push({ field: 'organizationId', operator: '==', value: organizationId });
+    }
+    return getDocuments('payroll', filters, null, limitCount);
   }
 };
 

@@ -8,11 +8,13 @@ import {
   FaSpinner
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { usersService, coursesService, recordingsService, tasksService, blogService } from '../../services/firebaseService';
 import './TeacherDashboard.css';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
+  const { user, getOrganizationId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     users: 0,
@@ -45,46 +47,112 @@ const TeacherDashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      const orgId = getOrganizationId();
+      const teacherId = user?.uid;
+      const teacherName = user?.name;
       
-      // Load counts and recent items in parallel
+      if (!orgId) {
+        console.error('Organization ID is missing');
+        setLoading(false);
+        return;
+      }
+      
+      // Load all data (teachers can't use aggregation queries, so we'll count from filtered data)
+      // Use caching to speed up data loading
       const [
-        usersCount, 
-        coursesCount, 
-        recordingsCount, 
-        tasksCount, 
-        blogPostsCount, 
-        recentUsers,
-        recentCourses,
-        recentRecordings,
-        recentTasks,
-        allTasks
+        allUsers,
+        allCourses,
+        allRecordings,
+        allTasks,
+        allBlogPosts
       ] = await Promise.all([
-        usersService.getCount().catch(() => 0),
-        coursesService.getCount().catch(() => 0),
-        recordingsService.getCount().catch(() => 0),
-        tasksService.getCount().catch(() => 0),
-        blogService.getCount().catch(() => 0),
-        // Load recent items for activities (limit to 5 most recent)
-        usersService.getAll(5).catch(() => []),
-        coursesService.getAll(5).catch(() => []),
-        recordingsService.getAll(5).catch(() => []),
-        tasksService.getAll(5).catch(() => []),
-        // Load all tasks to calculate pending count
-        tasksService.getAll(1000).catch(() => [])
+        // Teachers can only query students - use cache for faster loading
+        usersService.getByRole('student', 1000, orgId, true).catch(() => []),
+        coursesService.getAll(1000, orgId, true).catch(() => []),
+        recordingsService.getAll(1000, orgId, true).catch(() => []),
+        tasksService.getAll(1000, orgId, true).catch(() => []),
+        blogService.getAll(1000, orgId, true).catch(() => [])
       ]);
 
+      // Filter courses: only show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
+      const filteredCourses = (allCourses || []).filter(course => {
+        if (course.instructor && teacherName && course.instructor === teacherName) {
+          return true;
+        }
+        if (course.createdBy === teacherId) {
+          return true;
+        }
+        if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+          return course.assignedTeachers.includes(teacherId);
+        }
+        return false;
+      });
+
+      // Filter recordings: only show recordings accessible to teacher's courses
+      const teacherCourseIds = filteredCourses.map(c => c.id);
+      const filteredRecordings = (allRecordings || []).filter(recording => {
+        if (!recording.classIds || !Array.isArray(recording.classIds)) {
+          return false;
+        }
+        return recording.classIds.some(classId => teacherCourseIds.includes(classId));
+      });
+
+      // Filter tasks: only show tasks for teacher's courses
+      const filteredTasks = (allTasks || []).filter(task => {
+        if (task.classId && teacherCourseIds.includes(task.classId)) {
+          return true;
+        }
+        if (task.classIds && Array.isArray(task.classIds)) {
+          return task.classIds.some(classId => teacherCourseIds.includes(classId));
+        }
+        return false;
+      });
+
+      // Filter blog posts: only show posts created by teacher
+      const filteredBlogPosts = (allBlogPosts || []).filter(post => {
+        return post.createdBy === teacherId;
+      });
+
+      // Filter students: only show students enrolled in teacher's courses
+      const teacherCourseIdsSet = new Set(teacherCourseIds.map(id => String(id).trim().toLowerCase()));
+      const filteredStudents = (allUsers || []).filter(student => {
+        // Check if student is enrolled in any of the teacher's courses
+        const studentClassIds = (student.classIds || []).map(id => String(id).trim().toLowerCase());
+        const studentBatchIds = (student.batchIds || []).map(id => String(id).trim().toLowerCase());
+        
+        // Check if any student class/batch ID matches any teacher course ID
+        const hasMatchingClass = studentClassIds.some(studentId => 
+          Array.from(teacherCourseIdsSet).some(courseId => 
+            studentId === courseId || studentId.toLowerCase() === courseId.toLowerCase()
+          )
+        );
+        const hasMatchingBatch = studentBatchIds.some(studentId => 
+          Array.from(teacherCourseIdsSet).some(courseId => 
+            studentId === courseId || studentId.toLowerCase() === courseId.toLowerCase()
+          )
+        );
+        
+        return hasMatchingClass || hasMatchingBatch;
+      });
+
       // Calculate pending tasks
-      const pendingTasks = allTasks.filter(t => 
+      const pendingTasks = filteredTasks.filter(t => 
         t.status === 'in-progress' || t.status === 'not-started' || t.status === 'pending'
       ).length;
 
+      // Get recent items (limit to 5 most recent) - only teacher-related data
+      const recentUsers = filteredStudents.slice(0, 5);
+      const recentCourses = filteredCourses.slice(0, 5);
+      const recentRecordings = filteredRecordings.slice(0, 5);
+      const recentTasks = filteredTasks.slice(0, 5);
+
       setStats({
-        users: usersCount,
-        courses: coursesCount,
-        recordings: recordingsCount,
-        tasks: tasksCount,
+        users: filteredStudents.length, // Only students in teacher's classes
+        courses: filteredCourses.length,
+        recordings: filteredRecordings.length,
+        tasks: filteredTasks.length,
         pendingTasks: pendingTasks,
-        blogPosts: blogPostsCount
+        blogPosts: filteredBlogPosts.length
       });
 
       // Build recent activities from real data

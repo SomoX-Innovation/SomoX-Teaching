@@ -77,6 +77,12 @@
   margin-bottom: 2rem;
 }
 
+@media (min-width: 1200px) {
+  .analytics-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .analytics-stat-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -124,6 +130,16 @@
 .stat-icon-wrapper.stat-teal {
   background: rgba(20, 184, 166, 0.1);
   color: #14b8a6;
+}
+
+.stat-icon-wrapper.stat-orange {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+}
+
+.stat-icon-wrapper.stat-indigo {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
 }
 
 .stat-icon {
@@ -192,8 +208,14 @@
   margin: 0 0 1rem 0;
 }
 
+.chart-container {
+  height: 300px;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
 .chart-placeholder {
-  height: 250px;
+  height: 300px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -209,6 +231,103 @@
   font-size: 0.875rem;
   margin-top: 0.5rem;
   opacity: 0.7;
+}
+
+.chart-summary {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.summary-value.positive {
+  color: #22c55e;
+}
+
+.summary-value.revenue {
+  color: #14b8a6;
+}
+
+.chart-data-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.chart-stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.chart-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.5rem;
+}
+
+.chart-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.chart-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chart-stat-value.positive {
+  color: #22c55e;
+}
+
+.chart-stat-value.revenue {
+  color: #14b8a6;
+}
+
+.chart-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.breakdown-icon {
+  font-size: 1rem;
 }
 
 .analytics-details-grid {
@@ -252,6 +371,22 @@
 .quick-stat-value {
   font-weight: 600;
   color: var(--primary);
+}
+
+.activity-value.positive {
+  color: #22c55e;
+}
+
+.quick-stat-value.warning {
+  color: #f59e0b;
+}
+
+.quick-stat-value.success {
+  color: #22c55e;
+}
+
+.quick-stat-value.revenue {
+  color: #14b8a6;
 }
 
 .error-message {

@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FaCog, FaSave, FaSpinner } from 'react-icons/fa';
+import { FaCog, FaSave, FaSpinner, FaPercentage } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import { getDocument, updateDocument } from '../../services/firebaseService';
 import './OrganizationSettings.css';
 
 // Organization Settings Component
 const OrganizationSettings = () => {
+  const { getOrganizationId } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [settings, setSettings] = useState({
     siteName: 'Somox Learning',
     siteDescription: 'Learn and grow with Somox Learning',
@@ -14,8 +18,36 @@ const OrganizationSettings = () => {
     maintenanceMode: false,
     allowRegistrations: true,
     emailNotifications: true,
-    smsNotifications: false
+    smsNotifications: false,
+    teacherSalaryPercentage: 75, // Default 75% for teacher, 25% for organization
+    organizationSalaryPercentage: 25
   });
+
+  useEffect(() => {
+    loadOrganizationSettings();
+  }, []);
+
+  const loadOrganizationSettings = async () => {
+    try {
+      setLoadingData(true);
+      const orgId = getOrganizationId();
+      if (orgId) {
+        const orgDoc = await getDocument('organizations', orgId).catch(() => null);
+        if (orgDoc) {
+          setSettings(prev => ({
+            ...prev,
+            ...orgDoc,
+            teacherSalaryPercentage: orgDoc.teacherSalaryPercentage || 75,
+            organizationSalaryPercentage: orgDoc.organizationSalaryPercentage || 25
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Error loading organization settings:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const handleChange = (key, value) => {
     setSettings(prev => ({
@@ -25,12 +57,56 @@ const OrganizationSettings = () => {
   };
 
   const handleSave = async () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setLoading(true);
+      const orgId = getOrganizationId();
+      
+      if (!orgId) {
+        toast.error('Organization ID is missing');
+        return;
+      }
+
+      // Ensure percentages add up to 100
+      const teacherPercent = parseFloat(settings.teacherSalaryPercentage) || 0;
+      const orgPercent = parseFloat(settings.organizationSalaryPercentage) || 0;
+      
+      if (teacherPercent + orgPercent !== 100) {
+        toast.error('Teacher and Organization percentages must add up to 100%');
+        setLoading(false);
+        return;
+      }
+
+      await updateDocument('organizations', orgId, {
+        ...settings,
+        updatedAt: new Date().toISOString()
+      });
+
       toast.success('Settings saved successfully!');
-    }, 1000);
+    } catch (err) {
+      toast.error('Failed to save settings. Please try again.');
+      console.error('Error saving settings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePercentageChange = (type, value) => {
+    const numValue = parseFloat(value) || 0;
+    if (numValue < 0 || numValue > 100) return;
+    
+    if (type === 'teacher') {
+      setSettings(prev => ({
+        ...prev,
+        teacherSalaryPercentage: numValue,
+        organizationSalaryPercentage: 100 - numValue
+      }));
+    } else {
+      setSettings(prev => ({
+        ...prev,
+        organizationSalaryPercentage: numValue,
+        teacherSalaryPercentage: 100 - numValue
+      }));
+    }
   };
 
   return (
@@ -175,6 +251,59 @@ const OrganizationSettings = () => {
                     <span className="slider"></span>
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Payroll Settings */}
+          <div className="settings-section">
+            <h2 className="section-title">
+              <FaPercentage style={{ marginRight: '0.5rem' }} />
+              Payroll Settings
+            </h2>
+            <div className="settings-form">
+              <div className="form-group">
+                <label>Teacher Salary Percentage (%)</label>
+                <div className="percentage-input-group">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={settings.teacherSalaryPercentage}
+                    onChange={(e) => handlePercentageChange('teacher', e.target.value)}
+                    className="percentage-input"
+                  />
+                  <span className="percentage-label">%</span>
+                </div>
+                <p className="form-description">
+                  Percentage of student payments that goes to teachers. Example: If a student pays $1000 and this is set to 75%, the teacher receives $750.
+                </p>
+              </div>
+              <div className="form-group">
+                <label>Organization Percentage (%)</label>
+                <div className="percentage-input-group">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={settings.organizationSalaryPercentage}
+                    onChange={(e) => handlePercentageChange('organization', e.target.value)}
+                    className="percentage-input"
+                    readOnly
+                  />
+                  <span className="percentage-label">%</span>
+                </div>
+                <p className="form-description">
+                  Automatically calculated: {settings.organizationSalaryPercentage}% (100% - Teacher %)
+                </p>
+              </div>
+              <div className="percentage-summary">
+                <strong>Total: {parseFloat(settings.teacherSalaryPercentage) + parseFloat(settings.organizationSalaryPercentage)}%</strong>
+                {parseFloat(settings.teacherSalaryPercentage) + parseFloat(settings.organizationSalaryPercentage) !== 100 && (
+                  <span className="error-text">⚠️ Percentages must add up to 100%</span>
+                )}
               </div>
             </div>
           </div>

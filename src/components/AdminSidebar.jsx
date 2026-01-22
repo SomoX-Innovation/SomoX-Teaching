@@ -13,7 +13,8 @@ import {
   FaSignOutAlt,
   FaCog,
   FaBook,
-  FaMoneyBillWave
+  FaMoneyBillWave,
+  FaFileInvoiceDollar
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -228,6 +229,20 @@ const AdminSidebar = () => {
                 <FaMoneyBillWave className="nav-icon" />
               </div>
               <span className="nav-text">Payments</span>
+              <div className="nav-indicator"></div>
+            </Link>
+          </li>
+
+          {/* Payroll */}
+          <li>
+            <Link 
+              to="/organization/payroll" 
+              className={`nav-link ${isActive('/organization/payroll') ? 'active' : ''}`}
+            >
+              <div className="nav-icon-wrapper">
+                <FaFileInvoiceDollar className="nav-icon" />
+              </div>
+              <span className="nav-text">Payroll</span>
               <div className="nav-indicator"></div>
             </Link>
           </li>

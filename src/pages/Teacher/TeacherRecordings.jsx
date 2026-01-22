@@ -31,15 +31,48 @@ const TeacherRecordings = () => {
   });
 
   useEffect(() => {
-    loadRecordings();
-    loadCourses();
-    loadUsers();
-  }, []);
+    // Load courses first, then load users and recordings (which depend on courses)
+    const loadData = async () => {
+      const orgId = getOrganizationId();
+      const teacherId = user?.uid;
+      const teacherName = user?.name;
+      
+      // Load courses
+      const data = await coursesService.getAll(1000, orgId, true).catch(() => []);
+      
+      // Filter courses: only show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
+      const teacherCourses = (data || []).filter(course => {
+        if (course.instructor && teacherName && course.instructor === teacherName) {
+          return true;
+        }
+        if (course.createdBy === teacherId) {
+          return true;
+        }
+        if (course.assignedTeachers && Array.isArray(course.assignedTeachers)) {
+          return course.assignedTeachers.includes(teacherId);
+        }
+        return false;
+      });
+      
+      setCourses(teacherCourses || []);
+      
+      // Now load users and recordings with the filtered courses
+      await Promise.all([
+        loadUsers(teacherCourses),
+        loadRecordings(teacherCourses)
+      ]);
+    };
+    
+    if (user && getOrganizationId()) {
+      loadData();
+    }
+  }, [user]);
 
   const loadCourses = async () => {
     try {
       const orgId = getOrganizationId();
-      const data = await coursesService.getAll(1000, orgId);
+      // Use caching for faster loading
+      const data = await coursesService.getAll(1000, orgId, true);
       
       // Filter courses: only show courses where instructor name matches teacher name, or created by teacher, or assigned to teacher
       const teacherId = user?.uid;
@@ -66,35 +99,72 @@ const TeacherRecordings = () => {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = async (teacherCourses = courses) => {
     try {
       const orgId = getOrganizationId();
-      const data = await usersService.getAll(1000, orgId).catch(err => {
+      // Use caching and filter by role
+      const data = await usersService.getByRole('student', 1000, orgId, true).catch(err => {
         console.error('Error loading users:', err);
         return [];
       });
-      // Filter to only show students (teachers can only see students)
-      const students = (data || []).filter(user => {
-        const role = user.role ? user.role.toLowerCase() : 'student';
-        return role === 'student';
+      
+      // Filter students: only show students enrolled in teacher's courses
+      // Get teacher's course IDs
+      const teacherCourseIds = teacherCourses.map(c => c.id);
+      const teacherCourseIdsSet = new Set(teacherCourseIds.map(id => String(id).trim().toLowerCase()));
+      
+      const filteredStudents = (data || []).filter(student => {
+        // Check if student is enrolled in any of the teacher's courses
+        const studentClassIds = (student.classIds || []).map(id => String(id).trim().toLowerCase());
+        const studentBatchIds = (student.batchIds || []).map(id => String(id).trim().toLowerCase());
+        
+        // Check if any student class/batch ID matches any teacher course ID
+        const hasMatchingClass = studentClassIds.some(studentId => 
+          Array.from(teacherCourseIdsSet).some(courseId => 
+            studentId === courseId || studentId.toLowerCase() === courseId.toLowerCase()
+          )
+        );
+        const hasMatchingBatch = studentBatchIds.some(studentId => 
+          Array.from(teacherCourseIdsSet).some(courseId => 
+            studentId === courseId || studentId.toLowerCase() === courseId.toLowerCase()
+          )
+        );
+        
+        return hasMatchingClass || hasMatchingBatch;
       });
-      setUsers(students);
+      
+      setUsers(filteredStudents);
     } catch (err) {
       console.error('Error loading users:', err);
       setUsers([]);
     }
   };
 
-  const loadRecordings = async () => {
+  const loadRecordings = async (teacherCourses = courses) => {
     try {
       setLoading(true);
       setError(null);
       const orgId = getOrganizationId();
-      const data = await recordingsService.getAll(1000, orgId).catch(err => {
+      // Use caching for faster loading
+      const data = await recordingsService.getAll(1000, orgId, true).catch(err => {
         console.error('Error loading recordings:', err);
         return [];
       });
-      setRecordings(data || []);
+      
+      // Filter recordings: only show recordings accessible to teacher's courses
+      // Get teacher's course IDs
+      const teacherCourseIds = teacherCourses.map(c => c.id);
+      
+      const filteredRecordings = (data || []).filter(recording => {
+        // If recording has no classIds, it's accessible to all (but we'll only show if teacher has courses)
+        if (!recording.classIds || !Array.isArray(recording.classIds) || recording.classIds.length === 0) {
+          return false; // Don't show recordings with no class assignment
+        }
+        // Show if recording is accessible to any of teacher's courses
+        return recording.classIds.some(classId => teacherCourseIds.includes(classId));
+      });
+      
+      setRecordings(filteredRecordings);
     } catch (err) {
       setError('Failed to load recordings. Please try again.');
       console.error('Error loading recordings:', err);
@@ -139,7 +209,7 @@ const TeacherRecordings = () => {
         topics: topicsArray,
         classIds: formData.classIds || [] // Include batch IDs
       });
-      await loadRecordings();
+      await loadRecordings(courses);
       setShowAddModal(false);
       resetForm();
       toast.success('Recording created successfully!');
@@ -174,7 +244,7 @@ const TeacherRecordings = () => {
         topics: topicsArray,
         classIds: formData.classIds || []
       });
-      await loadRecordings();
+      await loadRecordings(courses);
       setShowEditModal(false);
       setSelectedRecording(null);
       resetForm();
@@ -190,7 +260,7 @@ const TeacherRecordings = () => {
       try {
         setError(null);
         await recordingsService.delete(id);
-        await loadRecordings();
+        await loadRecordings(courses);
       } catch (err) {
         setError('Failed to delete recording. Please try again.');
         console.error('Error deleting recording:', err);
@@ -224,10 +294,26 @@ const TeacherRecordings = () => {
   const getStudentCountForCourse = (courseId) => {
     // Count students enrolled in this class
     return users.filter(user => {
-      const role = user.role ? user.role.toLowerCase() : 'student';
-      if (role !== 'student') return false;
-      const userClassIds = user.classIds || user.batchIds || [];
-      return userClassIds.includes(courseId);
+      const userClassIds = user.classIds || [];
+      const userBatchIds = user.batchIds || [];
+      return userClassIds.includes(courseId) || userBatchIds.includes(courseId);
+    }).length;
+  };
+
+  const getStudentCountForRecording = (recording) => {
+    // Count students who can access this recording based on its classIds
+    if (!recording.classIds || recording.classIds.length === 0) {
+      return 0; // No classes assigned means no students
+    }
+    
+    // Count students enrolled in any of the recording's classes
+    return users.filter(user => {
+      const userClassIds = user.classIds || [];
+      const userBatchIds = user.batchIds || [];
+      // Check if user is enrolled in any of the recording's classes
+      return recording.classIds.some(classId => 
+        userClassIds.includes(classId) || userBatchIds.includes(classId)
+      );
     }).length;
   };
 
@@ -239,6 +325,17 @@ const TeacherRecordings = () => {
       classIds: [classId]
     }));
     setShowAddModal(true);
+  };
+
+  const handleClassToggle = (classId) => {
+    setFormData(prev => {
+      const currentClassIds = prev.classIds || [];
+      if (currentClassIds.includes(classId)) {
+        return { ...prev, classIds: currentClassIds.filter(id => id !== classId) };
+      } else {
+        return { ...prev, classIds: [...currentClassIds, classId] };
+      }
+    });
   };
 
   const uniqueMonths = [...new Set(recordings.map(r => r.month).filter(Boolean))];
@@ -542,11 +639,34 @@ const TeacherRecordings = () => {
                   </div>
                   <div className="recording-card-body">
                     <p className="recording-description">{recording.description || 'No description'}</p>
-                    <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                      <strong style={{ fontSize: '0.875rem', color: '#6b7280' }}>Classes: </strong>
-                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>
-                        {getClassNames(recording.classIds || recording.batchIds)}
-                      </span>
+                    <div style={{ 
+                      marginTop: '0.75rem', 
+                      marginBottom: '0.75rem',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '1rem',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <strong style={{ fontSize: '0.875rem', color: '#6b7280' }}>Classes: </strong>
+                        <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                          {getClassNames(recording.classIds || recording.batchIds)}
+                        </span>
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.375rem 0.75rem',
+                        background: '#eff6ff',
+                        borderRadius: '0.5rem',
+                        border: '1px solid #bfdbfe'
+                      }}>
+                        <FaUsers style={{ fontSize: '0.875rem', color: '#3b82f6' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1e40af' }}>
+                          {getStudentCountForRecording(recording)} student{getStudentCountForRecording(recording) !== 1 ? 's' : ''}
+                        </span>
+                      </div>
                     </div>
                     {Array.isArray(recording.topics) && recording.topics.length > 0 && (
                       <div className="recording-topics">

@@ -34,18 +34,20 @@
 }
 
 .navbar-logo img {
-  height: 150px;
+  height: 130px;
   width: auto;
-  max-width: 250px;
+  max-width: 150px;
+  margin: 0;
+  padding: 0;
   transition: all var(--transition-base);
 }
 
 [data-theme="dark"] .navbar-logo img {
-  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) 
-          drop-shadow(0 0 16px rgba(255, 255, 255, 0.2));
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.5rem;
-  border-radius: 0.5rem;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.2)) 
+          drop-shadow(0 0 8px rgba(255, 255, 255, 0.15));
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .navbar-links {
@@ -94,8 +96,8 @@
   }
 
   .navbar-logo img {
-    height: 100px;
-    max-width: 200px;
+    height: 60px;
+    max-width: 120px;
   }
 
   .navbar-links {
