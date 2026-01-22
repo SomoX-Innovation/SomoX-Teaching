@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { useTheme } from '../context/ThemeContext';
+import { FaEye, FaEyeSlash, FaGraduationCap, FaUsers, FaVideo, FaChartLine } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import Navbar from '../components/Navbar';
 import './SignIn.css';
 
 const SignIn = () => {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -28,19 +21,13 @@ const SignIn = () => {
   useEffect(() => {
     if (user) {
       const role = user.role?.toLowerCase();
-      console.log('🔐 SignIn - Redirecting user with role:', user.role, 'normalized:', role);
-      
       if (role === 'superadmin') {
-        console.log('✅ Redirecting SuperAdmin to /superadmin/dashboard');
         navigate('/superadmin/dashboard');
       } else if (role === 'admin') {
-        console.log('✅ Redirecting Admin to /organization/dashboard');
         navigate('/organization/dashboard');
       } else if (role === 'teacher') {
-        console.log('✅ Redirecting Teacher to /teacher/dashboard');
         navigate('/teacher/dashboard');
       } else {
-        console.log('✅ Redirecting Student to /dashboard');
         navigate('/dashboard');
       }
     }
@@ -59,7 +46,6 @@ const SignIn = () => {
       if (value && !value.includes('@')) {
         e.preventDefault();
         setFormData({...formData, email: `${value}@gmail.com`});
-        // Move focus to password field after a brief delay
         setTimeout(() => {
           const passwordInput = e.target.form?.querySelector('input[type="password"]');
           if (passwordInput) {
@@ -76,16 +62,7 @@ const SignIn = () => {
     setLoading(true);
 
     try {
-      // Sign in with Firebase Authentication
-      await signInWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-
-      // AuthContext will handle the user state update via onAuthStateChanged
-      // The navigation will happen automatically via the useEffect above
-      // when the user state is updated
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
     } catch (error) {
       console.error('Sign in error:', error);
       let errorMessage = 'Failed to sign in. Please check your credentials.';
@@ -95,8 +72,6 @@ const SignIn = () => {
           errorMessage = 'No account found with this email address.';
           break;
         case 'auth/wrong-password':
-          errorMessage = 'Incorrect password. Please try again.';
-          break;
         case 'auth/invalid-credential':
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
           break;
@@ -129,162 +104,157 @@ const SignIn = () => {
     });
   };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setError('');
-    setResetLoading(true);
-    setResetSuccess(false);
-
-    try {
-      // Add actionCodeSettings for better email delivery
-      const actionCodeSettings = {
-        url: `${window.location.origin}/sign-in`,
-        handleCodeInApp: false, // Set to false to open link in browser
-      };
-
-      await sendPasswordResetEmail(auth, resetEmail, actionCodeSettings);
-      
-      console.log('Password reset email sent successfully to:', resetEmail);
-      setResetSuccess(true);
-      setResetEmail('');
-    } catch (error) {
-      console.error('Password reset error:', error);
-      let errorMessage = 'Failed to send password reset email.';
-      
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'No account found with this email address.';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email address.';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Too many requests. Please try again later.';
-          break;
-        case 'auth/quota-exceeded':
-          errorMessage = 'Email quota exceeded. Please contact support.';
-          break;
-        default:
-          errorMessage = error.message || errorMessage;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
   return (
     <div className="signin-page">
-      {/* Navigation */}
-      <Navbar showSignIn={false} />
+      {/* Animated Background Elements */}
+      <div className="signin-bg-shapes">
+        <div className="signin-shape signin-shape-1"></div>
+        <div className="signin-shape signin-shape-2"></div>
+        <div className="signin-shape signin-shape-3"></div>
+        <div className="signin-shape signin-shape-4"></div>
+        <div className="signin-shape signin-shape-5"></div>
+        <div className="signin-shape signin-shape-6"></div>
+        <div className="signin-shape signin-shape-7"></div>
+      </div>
 
-      {/* Main Content */}
-      <div className="signin-container">
-        {/* Floating Background Decorations */}
-        <div className="signin-background-decorations">
-          <div className="decoration decoration-1"></div>
-          <div className="decoration decoration-2"></div>
-          <div className="decoration decoration-3"></div>
-        </div>
+      {/* Animated Particles */}
+      <div className="signin-particles">
+        {[...Array(20)].map((_, i) => (
+          <div key={i} className={`signin-particle signin-particle-${i + 1}`}></div>
+        ))}
+      </div>
 
-        {/* Sign In Card */}
-        <div className="signin-card">
-          {/* Left Side - Welcome Section */}
-          <div className="signin-welcome">
-            <div className="welcome-pattern">
-              <div className="pattern-circle pattern-1"></div>
-              <div className="pattern-square pattern-2"></div>
-              <div className="pattern-circle pattern-3"></div>
+      {/* Grid Pattern Overlay */}
+      <div className="signin-grid-overlay"></div>
+
+      <div className="signin-layout">
+        {/* Left Side - Branding */}
+        <div className="signin-left">
+          {/* Floating Icons */}
+          <div className="signin-floating-icons">
+            <div className="signin-floating-icon signin-icon-1">
+              <FaGraduationCap />
             </div>
-            <div className="welcome-content">
-              <div className="welcome-icon">🎓</div>
-              <h1 className="welcome-title">Welcome Back!</h1>
-              <p className="welcome-subtitle">
-                Continue your coding journey with our advanced LMS platform
-              </p>
-              <div className="welcome-features">
-                <div className="welcome-feature">
-                  <div className="feature-dot feature-dot-green"></div>
-                  <span>AI-Powered Learning</span>
+            <div className="signin-floating-icon signin-icon-2">
+              <FaUsers />
+            </div>
+            <div className="signin-floating-icon signin-icon-3">
+              <FaVideo />
+            </div>
+            <div className="signin-floating-icon signin-icon-4">
+              <FaChartLine />
+            </div>
+          </div>
+
+          <div className="signin-left-content">
+            {/* Decorative Circles */}
+            <div className="signin-decorative-circles">
+              <div className="signin-circle signin-circle-1"></div>
+              <div className="signin-circle signin-circle-2"></div>
+              <div className="signin-circle signin-circle-3"></div>
+            </div>
+
+            <div className="signin-left-text">
+              <div className="signin-tagline">
+                <span className="tagline-word tagline-animate-1">Class.</span>
+                <div className="tagline-software">
+                  <span className="tagline-word tagline-animate-2">Management.</span>
                 </div>
-                <div className="welcome-divider"></div>
-                <div className="welcome-feature">
-                  <div className="feature-dot feature-dot-blue"></div>
-                  <span>Live Sessions</span>
+                <span className="tagline-word tagline-animate-3">Simplified</span>
+              </div>
+              <div className="signin-subtagline">
+                <span>Streamline your classes, manage students, and track progress all in one place</span>
+              </div>
+              
+              {/* Feature Highlights */}
+              <div className="signin-features">
+                <div className="signin-feature-item">
+                  <div className="signin-feature-icon">
+                    <FaGraduationCap />
+                  </div>
+                  <span>Class Organization</span>
+                </div>
+                <div className="signin-feature-item">
+                  <div className="signin-feature-icon">
+                    <FaUsers />
+                  </div>
+                  <span>Student Tracking</span>
+                </div>
+                <div className="signin-feature-item">
+                  <div className="signin-feature-icon">
+                    <FaChartLine />
+                  </div>
+                  <span>Progress Monitoring</span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right Side - Form Section */}
-          <div className="signin-form-section">
-            <div className="signin-form-wrapper">
-              {/* Logo */}
-              <div className="signin-form-logo">
-                <img src="/assets/logo.png" alt="Somox Learning" />
+        {/* Right Side - Login Form */}
+        <div className="signin-right">
+          <div className="signin-right-content">
+            {/* Form Container */}
+            <div className="signin-form-container">
+              <div className="signin-form-header">
+                <div className="signin-welcome-badge">
+                  <span>Welcome Back</span>
+                </div>
+                <h1 className="signin-form-title">Sign in to your account</h1>
+                <p className="signin-form-subtitle">Enter your credentials to access your dashboard</p>
               </div>
 
-              {/* Form */}
               <form className="signin-form" onSubmit={handleSubmit}>
-                {/* Email Field */}
-                <div className="form-group">
-                  <label htmlFor="email" className="form-label">
-                    <span className="label-icon">📧</span>
-                    <span>Email Address</span>
+                {/* Email Input */}
+                <div className="signin-input-wrapper">
+                  <label className="signin-input-label">
+                    <span className="signin-label-icon">✉</span>
+                    Email Address
                   </label>
-                  <div className="input-wrapper">
+                  <div className="signin-input-container">
+                    <div className="signin-input-icon">
+                      <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                    </div>
                     <input
-                      type="email"
+                      type="text"
                       name="email"
-                      id="email"
+                      placeholder="name@example.com"
                       autoComplete="email"
-                      className="form-input"
-                      placeholder="Enter your email address"
+                      data-1p-ignore="true"
+                      data-lpignore="true"
+                      className="signin-input"
                       value={formData.email}
                       onChange={handleChange}
+                      onBlur={handleEmailBlur}
+                      onKeyDown={handleEmailKeyDown}
                       required
                     />
-                    <div className="input-gradient"></div>
+                    <div className="signin-input-focus-line"></div>
+                    <div className="signin-input-glow"></div>
                   </div>
                 </div>
 
-                {/* Password Field */}
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <label htmlFor="password" className="form-label" style={{ marginBottom: 0 }}>
-                      <span className="label-icon">🔒</span>
-                      <span>Password</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowForgotPassword(true);
-                        setResetEmail(formData.email);
-                        setError('');
-                        setResetSuccess(false);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#3b82f6',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        padding: '0.25rem 0',
-                        textDecoration: 'underline'
-                      }}
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                  <div className="input-wrapper">
+                {/* Password Input */}
+                <div className="signin-input-wrapper">
+                  <label className="signin-input-label">
+                    <span className="signin-label-icon">🔒</span>
+                    Password
+                  </label>
+                  <div className="signin-input-container signin-password-container">
+                    <div className="signin-input-icon">
+                      <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
-                      id="password"
-                      autoComplete="current-password"
-                      className="form-input form-input-password"
                       placeholder="Enter your password"
+                      autoComplete="current-password"
+                      className="signin-input"
                       value={formData.password}
                       onChange={handleChange}
                       required
@@ -292,243 +262,61 @@ const SignIn = () => {
                     />
                     <button
                       type="button"
-                      className="password-toggle"
+                      className="signin-password-toggle"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label="Toggle password visibility"
                       disabled={loading}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </button>
-                    <div className="input-gradient"></div>
+                    <div className="signin-input-focus-line"></div>
+                    <div className="signin-input-glow"></div>
                   </div>
                 </div>
 
                 {/* Error Message */}
                 {error && (
-                  <div className="form-error" style={{
-                    color: '#ef4444',
-                    fontSize: '0.875rem',
-                    marginTop: '0.5rem',
-                    padding: '0.75rem',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderRadius: '0.5rem',
-                    border: '1px solid rgba(239, 68, 68, 0.2)'
-                  }}>
-                    <div style={{ fontWeight: '500', marginBottom: '0.5rem' }}>{error}</div>
-                    {error.includes('Invalid email or password') && (
-                      <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.9 }}>
-                        💡 <strong>Need to create an account?</strong> Go to Firebase Console → Authentication → Users → Add User, then create a user document in Firestore with role "admin" or "student".
-                      </div>
-                    )}
+                  <div className="signin-error">
+                    <svg className="signin-error-icon" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span>{error}</span>
                   </div>
                 )}
 
                 {/* Submit Button */}
-                <button 
-                  type="submit" 
-                  className="signin-submit-btn"
-                  disabled={loading}
-                >
-                  <div className="btn-gradient-overlay"></div>
-                  <div className="btn-content">
-                    <span>{loading ? 'Signing In...' : 'Sign In to Dashboard'}</span>
+                <div className="signin-button-wrapper">
+                  <button
+                    type="submit"
+                    className="signin-button"
+                    disabled={loading || !formData.email || !formData.password}
+                  >
+                    <span className="signin-button-text">
+                      {loading ? 'Signing in...' : 'Sign In'}
+                    </span>
                     {!loading && (
-                      <svg className="btn-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      <svg className="signin-button-arrow" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     )}
-                  </div>
-                </button>
-              </form>
-
-              {/* Forgot Password Modal */}
-              {showForgotPassword && (
-                <div style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 1000
-                }} onClick={() => {
-                  setShowForgotPassword(false);
-                  setResetEmail('');
-                  setError('');
-                  setResetSuccess(false);
-                }}>
-                  <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '1rem',
-                    padding: '2rem',
-                    maxWidth: '400px',
-                    width: '90%',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                  }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                      <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>Reset Password</h2>
-                      <button
-                        onClick={() => {
-                          setShowForgotPassword(false);
-                          setResetEmail('');
-                          setError('');
-                          setResetSuccess(false);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          fontSize: '1.5rem',
-                          cursor: 'pointer',
-                          color: '#6b7280'
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    {resetSuccess ? (
-                      <div>
-                        <div style={{
-                          padding: '1rem',
-                          background: 'rgba(34, 197, 94, 0.1)',
-                          borderRadius: '0.5rem',
-                          marginBottom: '1rem',
-                          color: '#16a34a',
-                          border: '1px solid rgba(34, 197, 94, 0.2)'
-                        }}>
-                          <strong>✓ Email Sent!</strong>
-                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
-                            We've sent a password reset link to <strong>{resetEmail || 'your email'}</strong>. 
-                            Please check your inbox (and spam folder) and click the link to reset your password.
-                          </p>
-                          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
-                            💡 <strong>Tip:</strong> If you don't see the email, check your spam/junk folder. 
-                            The email should arrive within a few minutes.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setShowForgotPassword(false);
-                            setResetEmail('');
-                            setError('');
-                            setResetSuccess(false);
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            background: '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            fontWeight: '500'
-                          }}
-                        >
-                          Close
-                        </button>
+                    {loading && (
+                      <div className="signin-button-loader">
+                        <div className="signin-loader-spinner"></div>
                       </div>
-                    ) : (
-                      <form onSubmit={handleForgotPassword}>
-                        <div style={{ marginBottom: '1rem' }}>
-                          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                            Email Address
-                          </label>
-                          <input
-                            type="email"
-                            value={resetEmail}
-                            onChange={(e) => setResetEmail(e.target.value)}
-                            onBlur={(e) => {
-                              const value = e.target.value.trim();
-                              if (value && !value.includes('@')) {
-                                setResetEmail(`${value}@gmail.com`);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Tab' || e.key === 'Enter') {
-                                const value = resetEmail?.trim() || '';
-                                if (value && !value.includes('@')) {
-                                  e.preventDefault();
-                                  setResetEmail(`${value}@gmail.com`);
-                                }
-                              }
-                            }}
-                            placeholder="Enter your email address (or username for @gmail.com)"
-                            required
-                            style={{
-                              width: '100%',
-                              padding: '0.75rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.5rem',
-                              fontSize: '1rem'
-                            }}
-                          />
-                        </div>
-
-                        {error && (
-                          <div style={{
-                            padding: '0.75rem',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            borderRadius: '0.5rem',
-                            marginBottom: '1rem',
-                            color: '#dc2626',
-                            fontSize: '0.875rem',
-                            border: '1px solid rgba(239, 68, 68, 0.2)'
-                          }}>
-                            {error}
-                          </div>
-                        )}
-
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowForgotPassword(false);
-                              setResetEmail('');
-                              setError('');
-                              setResetSuccess(false);
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: '0.75rem',
-                              background: '#f3f4f6',
-                              color: '#374151',
-                              border: 'none',
-                              borderRadius: '0.5rem',
-                              cursor: 'pointer',
-                              fontSize: '1rem',
-                              fontWeight: '500'
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={resetLoading}
-                            style={{
-                              flex: 1,
-                              padding: '0.75rem',
-                              background: '#3b82f6',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '0.5rem',
-                              cursor: resetLoading ? 'not-allowed' : 'pointer',
-                              fontSize: '1rem',
-                              fontWeight: '500',
-                              opacity: resetLoading ? 0.6 : 1
-                            }}
-                          >
-                            {resetLoading ? 'Sending...' : 'Send Reset Link'}
-                          </button>
-                        </div>
-                      </form>
                     )}
-                  </div>
+                    <div className="signin-button-shine"></div>
+                  </button>
                 </div>
-              )}
+              </form>
+            </div>
+
+            {/* Footer */}
+            <div className="signin-footer">
+              <div className="signin-footer-text">© Somox Learning 2026</div>
+              <div className="signin-footer-divider">|</div>
+              <a href="#" className="signin-footer-link">Privacy Policy</a>
+              <div className="signin-footer-divider">|</div>
+              <a href="#" className="signin-footer-link">Terms of Service</a>
             </div>
           </div>
         </div>
@@ -538,4 +326,3 @@ const SignIn = () => {
 };
 
 export default SignIn;
-

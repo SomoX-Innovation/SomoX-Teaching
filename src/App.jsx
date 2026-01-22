@@ -41,6 +41,8 @@ import SuperAdminDashboard from './pages/SuperAdmin/SuperAdminDashboard';
 import SuperAdminOrganizations from './pages/SuperAdmin/SuperAdminOrganizations';
 // Public Pages
 import Home from './pages/Home';
+import About from './pages/About';
+import Pricing from './pages/Pricing';
 import SignIn from './pages/SignIn';
 import PlaceholderPage from './pages/PlaceholderPage';
 import './App.css';
@@ -91,6 +93,8 @@ function App() {
             <Routes>
               {/* Public Pages */}
               <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/blog" element={<PlaceholderPage title="Blog" description="Read our latest articles and tutorials." />} />
               <Route path="/sign-in" element={<SignIn />} />
               

@@ -1,102 +1,46 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  FaRocket, 
-  FaUsers, 
-  FaVideo, 
-  FaTasks, 
-  FaGraduationCap,
   FaCheckCircle,
-  FaUserFriends,
-  FaTrophy,
   FaChevronRight,
-  FaChevronLeft,
-  FaRobot,
-  FaGithub,
-  FaCreditCard,
-  FaPlayCircle,
-  FaSpinner
+  FaBars,
+  FaTimes,
+  FaGraduationCap,
+  FaUsers,
+  FaVideo,
+  FaTasks,
+  FaChartLine,
+  FaBook,
+  FaLaptop,
+  FaMobileAlt,
+  FaClock,
+  FaAward,
+  FaRocket
 } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
 import { recordingsService, usersService, tasksService, batchesService } from '../services/firebaseService';
-import Navbar from '../components/Navbar';
+import teacherDashboard from '../assets/images/TD.png';
+import studentDashboard from '../assets/images/SD.png';
 import './Home.css';
 
 const Home = () => {
   const { theme } = useTheme();
-  const [currentFeature, setCurrentFeature] = useState(4); // Payment Management (index 4)
-  const [videos, setVideos] = useState([]);
-  // Mock values for display
-  const MOCK_STATS = {
-    students: 150,
-    recordings: 85,
-    tasks: 320,
-    batches: 12
-  };
-
-  const [stats, setStats] = useState(MOCK_STATS);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [stats, setStats] = useState({
+    students: 0,
+    recordings: 0,
+    tasks: 0,
+    batches: 0
+  });
   const [loading, setLoading] = useState(true);
-
-  const features = [
-    {
-      icon: '🤖',
-      title: 'AI Pro Model Access',
-      description: 'Get access to advanced AI models for coding assistance, debugging help, and learning support.',
-      details: 'ChatGPT Pro, Claude, GitHub Copilot integration, code review assistance, and intelligent suggestions.',
-      color: 'from-blue-500 to-cyan-500'
-    },
-    {
-      icon: '🎥',
-      title: 'Session Recordings',
-      description: 'Access all your class recordings, tutorials, and workshop sessions anytime, anywhere.',
-      details: 'HD video quality, automatic transcription, bookmarking, playback speed control, and offline downloads.',
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      icon: '📋',
-      title: 'Task Management',
-      description: 'Organize assignments, track progress, and manage deadlines with our powerful task system.',
-      details: 'Kanban boards, priority levels, due date reminders, progress tracking, and team collaboration.',
-      color: 'from-green-500 to-teal-500'
-    },
-    {
-      icon: '🔗',
-      title: 'GitHub Integration',
-      description: 'Seamlessly link your coding projects with GitHub for version control and collaboration.',
-      details: 'Auto PR creation, code reviews, commit tracking, branch management, and deployment integration.',
-      color: 'from-gray-700 to-gray-900'
-    },
-    {
-      icon: '💳',
-      title: 'Payment Management',
-      description: 'Easily manage student payments and billing with secure, automated payment processing.',
-      details: 'Stripe integration, automatic invoicing, payment plans, refund management, and detailed financial analytics.',
-      color: 'from-orange-500 to-red-500'
-    },
-    {
-      icon: '📹',
-      title: 'Zoom Sessions',
-      description: 'Integrated video conferencing for live classes, one-on-one mentoring, and group discussions.',
-      details: 'Screen sharing, breakout rooms, recording, chat, polls, and attendance tracking.',
-      color: 'from-indigo-500 to-blue-500'
-    }
-  ];
 
   useEffect(() => {
     loadHomeData();
   }, []);
 
-  // Debug: Log stats changes
-  useEffect(() => {
-    console.log('Stats state updated:', stats);
-  }, [stats]);
-
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      
-      // Use optimized count queries instead of loading all documents
-      // Load all counts in parallel for better performance
       const [studentsCount, recordingsCount, tasksCount, batchesCount] = await Promise.all([
         usersService.getCountByRole('student').catch(() => 0),
         recordingsService.getCount().catch(() => 0),
@@ -104,336 +48,355 @@ const Home = () => {
         batchesService.getCount().catch(() => 0)
       ]);
 
-      console.log('✅ Stats loaded:', { studentsCount, recordingsCount, tasksCount, batchesCount });
-
-      // Use real data if available, otherwise use mock values
-      const statsData = {
-        students: studentsCount > 0 ? studentsCount : MOCK_STATS.students,
-        recordings: recordingsCount > 0 ? recordingsCount : MOCK_STATS.recordings,
-        tasks: tasksCount > 0 ? tasksCount : MOCK_STATS.tasks,
-        batches: batchesCount > 0 ? batchesCount : MOCK_STATS.batches
-      };
-
-      console.log('📊 Final stats:', statsData);
-      console.log('📊 Real counts:', { studentsCount, recordingsCount, tasksCount, batchesCount });
-      setStats(statsData);
-
-
-      // Load recordings that have YouTube video IDs (for video section)
-      // Only load first 10 active recordings, then filter client-side (much faster)
-      try {
-        const activeRecordings = await recordingsService.getActive(10);
-        const youtubeRecordings = (activeRecordings || [])
-          .filter(r => r.youtubeVideoId || r.videoUrl?.includes('youtube.com') || r.videoUrl?.includes('youtu.be'))
-          .slice(0, 2)
-          .map(r => ({
-            id: r.id,
-            title: r.title || 'Session Recording',
-            description: r.description || '',
-            videoId: r.youtubeVideoId || extractYouTubeId(r.videoUrl),
-            duration: r.duration || 'N/A',
-            level: r.level || 'Beginner',
-            category: r.category || 'General',
-            views: r.views || '0'
-          }));
-        setVideos(youtubeRecordings);
-        console.log('✅ Videos loaded:', youtubeRecordings.length);
-      } catch (error) {
-        console.error('❌ Error loading videos:', error);
-        setVideos([]);
-      }
-
+      setStats({
+        students: studentsCount || 0,
+        recordings: recordingsCount || 0,
+        tasks: tasksCount || 0,
+        batches: batchesCount || 0
+      });
     } catch (error) {
-      console.error('❌ Critical error loading home data:', error);
-      // Use mock values on error
-      console.log('⚠️ Using mock stats due to error');
-      setStats(MOCK_STATS);
+      console.error('Error loading home data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const extractYouTubeId = (url) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
-  // Create stats cards with real data
-  const statsCards = [
-    { icon: '👥', value: `${stats.students || 0}+`, label: 'Students', color: 'from-blue-500 to-purple-500', delay: '0s' },
-    { icon: '🎥', value: `${stats.recordings || 0}+`, label: 'Session Recordings', color: 'from-green-500 to-blue-500', delay: '0.1s' },
-    { icon: '📋', value: `${stats.tasks || 0}+`, label: 'Tasks', color: 'from-orange-500 to-red-500', delay: '0.2s' },
-    { icon: '🎓', value: `${stats.batches || 0}+`, label: 'Batches', color: 'from-purple-500 to-pink-500', delay: '0.3s' }
+  const features = [
+    { 
+      icon: <FaGraduationCap />, 
+      title: 'Class Management', 
+      description: 'Organize classes, batches, and courses with ease. Manage schedules, enrollments, and student progress all in one place.' 
+    },
+    { 
+      icon: <FaVideo />, 
+      title: 'Session Recordings', 
+      description: 'Record and store all your class sessions. Students can access recordings anytime to review lessons and catch up.' 
+    },
+    { 
+      icon: <FaTasks />, 
+      title: 'Task & Assignment', 
+      description: 'Create, assign, and track tasks and assignments. Monitor student progress and provide timely feedback.' 
+    },
+    { 
+      icon: <FaUsers />, 
+      title: 'Student Management', 
+      description: 'Comprehensive student profiles, attendance tracking, progress monitoring, and performance analytics.' 
+    },
+    { 
+      icon: <FaChartLine />, 
+      title: 'Analytics & Reports', 
+      description: 'Get detailed insights into student performance, class statistics, and learning outcomes with interactive dashboards.' 
+    },
+    { 
+      icon: <FaBook />, 
+      title: 'Content Library', 
+      description: 'Build a rich library of educational content, resources, and materials accessible to students and teachers.' 
+    }
   ];
 
-  const nextFeature = () => {
-    setCurrentFeature((prev) => (prev + 1) % features.length);
-  };
-
-  const prevFeature = () => {
-    setCurrentFeature((prev) => (prev - 1 + features.length) % features.length);
-  };
+  const benefits = [
+    { icon: <FaClock />, text: 'Save Time with Automation' },
+    { icon: <FaAward />, text: 'Improve Learning Outcomes' },
+    { icon: <FaLaptop />, text: 'Access Anywhere, Anytime' },
+    { icon: <FaChartLine />, text: 'Track Progress Easily' }
+  ];
 
   return (
     <div className="home-page">
       {/* Navigation */}
-      <Navbar />
+      <nav className="home-nav">
+        <div className="home-nav-wrapper">
+          <div className="home-nav-container">
+            <Link to="/" className="home-brand">
+              <img src="/assets/logo.png" alt="Somox Learning" className="home-brand-image" />
+            </Link>
+            <nav className="home-nav-menu">
+              <div className="home-nav-links">
+                <a href="#features" className="home-nav-link">Features</a>
+                <a href="#about" className="home-nav-link">About</a>
+                <a href="#pricing" className="home-nav-link">Pricing</a>
+                <Link to="/sign-in" className="home-nav-link">Login</Link>
+                <Link to="/sign-in" className="home-nav-link home-nav-link-primary">
+                  Get Started
+                  <FaChevronRight className="home-nav-arrow-icon" />
+                </Link>
+              </div>
+            </nav>
+            <button 
+              className="home-menu-button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="menu"
+            >
+              {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+            </button>
+          </div>
+        </div>
+      </nav>
 
       {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-container">
-          <div className="hero-content">
-            <h1 className="hero-title">
-              <span className="gradient-text">Build Skills,</span>
-              <span className="gradient-text">Ship Software.</span>
+      <section className="home-hero">
+        <div className="home-hero-container">
+          <div className="home-hero-content">
+            <div className="home-hero-badge">
+              <FaRocket className="home-badge-icon" />
+              <span>Modern Class Management System</span>
+            </div>
+            <h1 className="home-hero-title">
+              Manage Your Classes
+              <span className="home-hero-title-highlight"> Smarter, Faster</span>
             </h1>
-            <p className="hero-subtitle">
-              Master coding through hands-on projects, expert mentorship, and real-world experience.
+            <p className="home-hero-description">
+              Everything you need to manage classes, track student progress, deliver content, 
+              and enhance learning outcomes—all in one powerful platform.
             </p>
+            <div className="home-hero-cta">
+              <Link to="/sign-in" className="home-hero-btn home-hero-btn-primary">
+                Start Free Trial
+                <FaChevronRight />
+              </Link>
+              <a href="#features" className="home-hero-btn home-hero-btn-secondary">
+                Learn More
+              </a>
+            </div>
+            <div className="home-hero-stats">
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-value">{stats.students}+</div>
+                <div className="home-hero-stat-label">Active Students</div>
+              </div>
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-value">{stats.batches}+</div>
+                <div className="home-hero-stat-label">Active Classes</div>
+              </div>
+              <div className="home-hero-stat">
+                <div className="home-hero-stat-value">{stats.recordings}+</div>
+                <div className="home-hero-stat-label">Session Recordings</div>
+              </div>
+            </div>
           </div>
-
-          <div className="hero-card-container">
-            <div className="hero-card">
-              <div className="hero-card-icon">
-                <FaRocket />
-              </div>
-              <h3 className="hero-card-title gradient-text">Start Your Journey</h3>
-              <p className="hero-card-subtitle">Join thousands of developers worldwide</p>
-
-              <div className="hero-features">
-                <div className="hero-feature">
-                  <FaCheckCircle className="hero-feature-icon" />
-                  <div>
-                    <h4>Interactive Learning</h4>
-                    <p>Hands-on coding experience</p>
-                  </div>
-                </div>
-                <div className="hero-feature">
-                  <FaUserFriends className="hero-feature-icon" />
-                  <div>
-                    <h4>Expert Mentorship</h4>
-                    <p>Learn from industry professionals</p>
-                  </div>
-                </div>
-                <div className="hero-feature">
-                  <FaTrophy className="hero-feature-icon" />
-                  <div>
-                    <h4>Career Growth</h4>
-                    <p>Build your professional portfolio</p>
-                  </div>
-                </div>
-              </div>
+          <div className="home-hero-visual">
+            <div className="home-hero-dashboard-preview">
+              <img 
+                src={teacherDashboard} 
+                alt="Class Management Dashboard Preview" 
+                className="home-hero-dashboard-image"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Workflow Section */}
-      <section className="workflow-section">
-        <div className="section-container">
-          <h2 className="section-title gradient-text">
-            <FaRocket className="section-title-icon" />
-            Power Up Your Learning Workflow
-          </h2>
-          <p className="section-subtitle">
-            Manage tasks, link GitHub PRs, handle payments, and access session recordings — all in one powerful platform.
-          </p>
-          <div className="workflow-features">
-            <div className="workflow-feature">
-              <div className="workflow-dot"></div>
-              <span>Task Management</span>
-            </div>
-            <div className="workflow-feature">
-              <div className="workflow-dot"></div>
-              <span>AI Pro Model Access</span>
-            </div>
-            <div className="workflow-feature">
-              <div className="workflow-dot"></div>
-              <span>GitHub Integration</span>
-            </div>
-            <div className="workflow-feature">
-              <div className="workflow-dot"></div>
-              <span>Payment Processing</span>
-            </div>
-            <div className="workflow-feature">
-              <div className="workflow-dot"></div>
-              <span>Session Recordings</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Carousel */}
-      <section className="features-section">
-        <div className="section-container">
-          <h2 className="section-title gradient-text">Platform Features</h2>
-          <p className="section-subtitle">
-            Everything you need to succeed in your learning journey, all in one powerful platform
-          </p>
-
-          <div className="features-carousel">
-            <button className="carousel-btn carousel-btn-prev" onClick={prevFeature}>
-              <FaChevronLeft />
-            </button>
-
-            <div className="feature-card">
-              <div className={`feature-card-gradient ${features[currentFeature].color}`}></div>
-              <div className="feature-card-content">
-                <div className="feature-icon">{features[currentFeature].icon}</div>
-                <h3 className="feature-title">{features[currentFeature].title}</h3>
-                <p className="feature-description">{features[currentFeature].description}</p>
-                <p className="feature-details">{features[currentFeature].details}</p>
-                <div className="feature-progress"></div>
+      {/* Trusted By Section */}
+      <section className="home-trusted">
+        <div className="home-trusted-container">
+          <p className="home-trusted-label">Trusted by Educational Institutions</p>
+          <div className="home-trusted-logos">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="home-trusted-logo">
+                <span>Institution {i}</span>
               </div>
-            </div>
-
-            <button className="carousel-btn carousel-btn-next" onClick={nextFeature}>
-              <FaChevronRight />
-            </button>
-          </div>
-
-          <div className="feature-indicators">
-            {features.map((feature, index) => (
-              <button
-                key={index}
-                className={`feature-indicator ${index === currentFeature ? 'active' : ''}`}
-                onClick={() => setCurrentFeature(index)}
-              >
-                <div className="feature-indicator-icon">{feature.icon}</div>
-                <div className="feature-indicator-dot"></div>
-              </button>
             ))}
           </div>
-
-          <div className="feature-progress-bar">
-            <div 
-              className="feature-progress-fill"
-              style={{ width: `${((currentFeature + 1) / features.length) * 100}%` }}
-            ></div>
-          </div>
-          <p className="feature-progress-text">{currentFeature + 1} of {features.length}</p>
         </div>
       </section>
 
-      {/* Statistics Section */}
-      <section className="stats-section">
-        <div className="section-container">
-          <div className="stats-grid">
-            <div className="stats-info">
-              <h2 className="section-title gradient-text">LMS Statistics</h2>
-              <p className="section-subtitle">See the impact of our learning platform in numbers</p>
+      {/* Features Section */}
+      <section id="features" className="home-features">
+        <div className="home-features-container">
+          <div className="home-features-header">
+            <div className="home-features-badge">
+              <span>Why Choose Somox?</span>
+            </div>
+            <h2 className="home-features-title">
+              Everything You Need to Manage Classes
+            </h2>
+            <p className="home-features-subtitle">
+              Powerful tools designed for modern education. Streamline your workflow and focus on what matters—teaching.
+            </p>
+          </div>
+          <div className="home-features-grid">
+            {features.map((feature, index) => (
+              <div key={index} className="home-feature-card">
+                <div className="home-feature-icon">{feature.icon}</div>
+                <h3 className="home-feature-title">{feature.title}</h3>
+                <p className="home-feature-description">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '2rem' }}>
-                  <FaSpinner className="spinner" style={{ animation: 'spin 1s linear infinite', fontSize: '2rem', color: 'var(--primary)' }} />
-                  <p>Loading statistics...</p>
+      {/* For Teachers & Students Section */}
+      <section className="home-audience">
+        <div className="home-audience-container">
+          <div className="home-audience-header">
+            <h2 className="home-audience-title">
+              Built for <strong>Teachers</strong> and <strong>Students</strong>
+            </h2>
+            <p className="home-audience-subtitle">
+              A platform that empowers both educators and learners
+            </p>
+          </div>
+          <div className="home-audience-grid">
+            {/* For Teachers */}
+            <div className="home-audience-card home-audience-teachers">
+              <div className="home-audience-badge">For Teachers</div>
+              <h3 className="home-audience-card-title">Teach Without the Paperwork</h3>
+              <p className="home-audience-card-description">
+                Create classes, assign tasks, upload recordings, track student progress, 
+                and generate reports—all from one intuitive dashboard.
+              </p>
+              <ul className="home-audience-list">
+                <li><FaCheckCircle /> Easy class creation and management</li>
+                <li><FaCheckCircle /> Automated task assignment</li>
+                <li><FaCheckCircle /> Real-time progress tracking</li>
+                <li><FaCheckCircle /> Comprehensive analytics</li>
+              </ul>
+              <div className="home-audience-visual">
+                <div className="home-audience-image-container">
+                  <img 
+                    src={teacherDashboard} 
+                    alt="Teacher Dashboard" 
+                    className="home-audience-image"
+                  />
                 </div>
-              ) : (
-                <div className="stats-cards">
-                  {statsCards.map((stat, index) => (
-                    <div key={index} className="stat-card" style={{ transitionDelay: stat.delay }}>
-                      <div className={`stat-gradient bg-gradient-to-br ${stat.color}`}></div>
-                      <div className="stat-icon">{stat.icon}</div>
-                      <div className="stat-value">{stat.value}</div>
-                      <div className="stat-label">{stat.label}</div>
-                      <div className={`stat-bar bg-gradient-to-r ${stat.color}`}></div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              </div>
             </div>
 
-            <div className="stats-cta">
-              <div className="stats-cta-content">
-                <div className="stats-cta-header">
-                  <h3>New Feature: Interactive Workshops</h3>
-                  <div className="stats-cta-emoji">✨</div>
+            {/* For Students */}
+            <div className="home-audience-card home-audience-students">
+              <div className="home-audience-visual">
+                <div className="home-audience-image-container">
+                  <img 
+                    src={studentDashboard} 
+                    alt="Student Dashboard" 
+                    className="home-audience-image"
+                  />
                 </div>
-                <p>
-                  Join live sessions with industry experts to level up your skills, collaborate with peers, 
-                  and receive real-time feedback on projects.
-                </p>
-                <a 
-                  href="https://sl.codinggura.com/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="stats-cta-btn"
-                >
-                  Learn More
-                </a>
+              </div>
+              <div className="home-audience-badge">For Students</div>
+              <h3 className="home-audience-card-title">All Your Learning in One Place</h3>
+              <p className="home-audience-card-description">
+                Access classes, complete assignments, watch recordings, track your progress, 
+                and stay organized throughout your learning journey.
+              </p>
+              <ul className="home-audience-list">
+                <li><FaCheckCircle /> Access all class materials</li>
+                <li><FaCheckCircle /> Submit assignments easily</li>
+                <li><FaCheckCircle /> Watch recordings anytime</li>
+                <li><FaCheckCircle /> Track your progress</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="home-benefits">
+        <div className="home-benefits-container">
+          <div className="home-benefits-grid">
+            {benefits.map((benefit, index) => (
+              <div key={index} className="home-benefit-item">
+                <div className="home-benefit-icon">{benefit.icon}</div>
+                <div className="home-benefit-text">{benefit.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* All Features List */}
+      <section className="home-all-features">
+        <div className="home-all-features-container">
+          <h2 className="home-all-features-title">
+            Everything You Need. <strong>Seriously.</strong>
+          </h2>
+          <div className="home-all-features-grid">
+            {[
+              'Class Management', 'Batch Organization', 'Student Enrollment', 'Teacher Assignment',
+              'Session Recordings', 'Task Management', 'Assignment Grading', 'Progress Tracking',
+              'Analytics Dashboard', 'Report Generation', 'Payment Processing', 'Attendance Tracking',
+              'Content Library', 'File Uploads', 'Role-Based Access', 'Mobile Access',
+              'Real-time Updates', 'Notification System', 'Search & Filter', 'Export Data'
+            ].map((feature, index) => (
+              <div key={index} className="home-all-feature-item">
+                <FaCheckCircle className="home-all-feature-check" />
+                <span>{feature}</span>
+              </div>
+            ))}
+          </div>
+          <Link to="/sign-in" className="home-all-features-cta">
+            Get Started Today
+            <FaChevronRight />
+          </Link>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="home-cta-section">
+        <div className="home-cta-container">
+          <div className="home-cta-content">
+            <h2 className="home-cta-title">Ready to Transform Your Class Management?</h2>
+            <p className="home-cta-description">
+              Join thousands of educators who are already using Somox to streamline their teaching workflow.
+            </p>
+            <div className="home-cta-buttons">
+              <Link to="/sign-in" className="home-cta-btn home-cta-btn-primary">
+                Start Free Trial
+                <FaChevronRight />
+              </Link>
+              <a href="#features" className="home-cta-btn home-cta-btn-secondary">
+                View Features
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="home-footer">
+        <div className="home-footer-container">
+          <div className="home-footer-content">
+            <div className="home-footer-brand">
+              <img src="/assets/logo.png" alt="Somox Learning" className="home-footer-logo" />
+              <p className="home-footer-tagline">Empowering Education Through Technology</p>
+            </div>
+            <div className="home-footer-links">
+              <div className="home-footer-column">
+                <h4 className="home-footer-heading">Product</h4>
+                <a href="#features" className="home-footer-link">Features</a>
+                <a href="#pricing" className="home-footer-link">Pricing</a>
+                <Link to="/sign-in" className="home-footer-link">Login</Link>
+              </div>
+              <div className="home-footer-column">
+                <h4 className="home-footer-heading">Company</h4>
+                <a href="#about" className="home-footer-link">About Us</a>
+                <Link to="/contact" className="home-footer-link">Contact</Link>
+                <a href="#" className="home-footer-link">Blog</a>
+              </div>
+              <div className="home-footer-column">
+                <h4 className="home-footer-heading">Support</h4>
+                <a href="#help" className="home-footer-link">Help Center</a>
+                <a href="#" className="home-footer-link">Documentation</a>
+                <Link to="/legal" className="home-footer-link">Legal</Link>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Video Section */}
-      <section className="video-section">
-        <div className="section-container">
-          <h2 className="section-title-white">YouTube Published Session Recordings</h2>
-          <p className="section-subtitle-white">
-            Explore our wide range of session recordings to gain deeper insights and sharpen your skills with expert-led content.
-          </p>
-
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem' }}>
-              <FaSpinner className="spinner" style={{ animation: 'spin 1s linear infinite', fontSize: '2rem', color: 'var(--primary)' }} />
-              <p>Loading videos...</p>
+          <div className="home-footer-bottom">
+            <div className="home-footer-copyright">© Somox Learning 2026. All Rights Reserved.</div>
+            <div className="home-footer-social">
+              <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" className="home-footer-social-link">
+                LinkedIn
+              </a>
+              <span className="home-footer-divider">|</span>
+              <Link to="/legal" className="home-footer-social-link">Privacy Policy</Link>
+              <span className="home-footer-divider">|</span>
+              <Link to="/legal" className="home-footer-social-link">Terms of Service</Link>
             </div>
-          ) : (
-            <div className="video-grid">
-              {videos.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '2rem' }}>No videos available yet.</p>
-              ) : (
-                videos.map((video) => (
-                  video.videoId ? (
-                    <div key={video.id} className="video-card">
-                      <div className="video-frame">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${video.videoId}`}
-                          title={video.title}
-                          frameBorder="0"
-                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        ></iframe>
-                        <div className="video-badges">
-                          <span className="video-badge">{video.duration}</span>
-                          <span className="video-badge">{video.level}</span>
-                        </div>
-                      </div>
-                      <div className="video-content">
-                        <div className="video-header">
-                          <span className="video-category">{video.category}</span>
-                          <div className="video-views">
-                            <span>👁</span>
-                            <span>{video.views} views</span>
-                          </div>
-                        </div>
-                        <h3 className="video-title">{video.title}</h3>
-                        <p className="video-description">{video.description}</p>
-                        <button className="video-btn">
-                          <FaPlayCircle /> Watch Now
-                        </button>
-                      </div>
-                    </div>
-                  ) : null
-                ))
-              )}
-            </div>
-          )}
+          </div>
         </div>
-      </section>
+      </footer>
     </div>
   );
 };
 
 export default Home;
-
