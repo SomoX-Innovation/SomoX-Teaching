@@ -186,8 +186,12 @@ const OrganizationUsers = () => {
 
   const handleEmailBlur = (e, fieldName = 'email') => {
     const value = e.target.value.trim();
-    if (value && !value.includes('@')) {
+    // Only auto-fill if there's a non-empty value without @
+    if (value && value.length > 0 && !value.includes('@')) {
       setFormData({...formData, [fieldName]: `${value}@gmail.com`});
+    } else if (!value || value.length === 0) {
+      // Explicitly clear the field if it's empty
+      setFormData({...formData, [fieldName]: ''});
     }
   };
 
@@ -1255,6 +1259,7 @@ const OrganizationUsers = () => {
                     handleEmailKeyDown(e, 'email');
                   }}
                   onFocus={(e) => e.stopPropagation()}
+                  autoComplete="off"
                   placeholder="Enter email address (or username for @gmail.com)"
                 />
               </div>
@@ -1479,6 +1484,7 @@ const OrganizationUsers = () => {
                     handleEmailKeyDown(e, 'email');
                   }}
                   onFocus={(e) => e.stopPropagation()}
+                  autoComplete="off"
                   placeholder="Enter admin email address (or username for @gmail.com)"
                   required
                 />
@@ -1546,6 +1552,7 @@ const OrganizationUsers = () => {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   onKeyDown={(e) => e.stopPropagation()}
                   onFocus={(e) => e.stopPropagation()}
+                  autoComplete="off"
                 />
               </div>
               <div className="form-group">

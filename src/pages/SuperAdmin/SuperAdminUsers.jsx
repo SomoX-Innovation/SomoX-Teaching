@@ -58,6 +58,41 @@ const SuperAdminUsers = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const handleEmailBlur = (e, fieldName = 'adminEmail') => {
+    const value = e.target.value.trim();
+    // Only auto-fill if there's a non-empty value without @
+    if (value && value.length > 0 && !value.includes('@')) {
+      setFormData({...formData, [fieldName]: `${value}@gmail.com`});
+    } else if (!value || value.length === 0) {
+      // Explicitly clear the field if it's empty
+      setFormData({...formData, [fieldName]: ''});
+    }
+  };
+
+  const handleEmailKeyDown = (e, fieldName = 'adminEmail') => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      const value = formData[fieldName]?.trim() || '';
+      if (value && !value.includes('@')) {
+        e.preventDefault();
+        setFormData({...formData, [fieldName]: `${value}@gmail.com`});
+        // Move focus to next field after a brief delay
+        setTimeout(() => {
+          const form = e.target.form || e.target.closest('form');
+          if (form) {
+            const inputs = form.querySelectorAll('input, select, textarea');
+            if (inputs && inputs.length > 0) {
+              const inputsArray = Array.from(inputs);
+              const currentIndex = inputsArray.indexOf(e.target);
+              if (currentIndex >= 0 && inputsArray[currentIndex + 1]) {
+                inputsArray[currentIndex + 1].focus();
+              }
+            }
+          }
+        }, 10);
+      }
+    }
+  };
+
   const handleCreateOrganizationAdmin = async (e) => {
     e.preventDefault();
     try {
@@ -396,6 +431,7 @@ const SuperAdminUsers = () => {
                         handleEmailKeyDown(e, 'adminEmail');
                       }}
                       onFocus={(e) => e.stopPropagation()}
+                      autoComplete="off"
                       placeholder="Enter admin email address (or username for @gmail.com)"
                       required
                     />

@@ -422,8 +422,12 @@ const TeacherUsers = () => {
 
   const handleEmailBlur = (e, fieldName = 'email') => {
     const value = e.target.value.trim();
-    if (value && !value.includes('@')) {
+    // Only auto-fill if there's a non-empty value without @
+    if (value && value.length > 0 && !value.includes('@')) {
       setFormData({...formData, [fieldName]: `${value}@gmail.com`});
+    } else if (!value || value.length === 0) {
+      // Explicitly clear the field if it's empty
+      setFormData({...formData, [fieldName]: ''});
     }
   };
 
@@ -1246,6 +1250,7 @@ const TeacherUsers = () => {
                     handleEmailKeyDown(e, 'email');
                   }}
                   onFocus={(e) => e.stopPropagation()}
+                  autoComplete="off"
                   placeholder="Enter email address (or username for @gmail.com)"
                 />
               </div>
@@ -1423,6 +1428,7 @@ const TeacherUsers = () => {
                     handleEmailKeyDown(e, 'email');
                   }}
                   onFocus={(e) => e.stopPropagation()}
+                  autoComplete="off"
                   placeholder="Enter email address (or username for @gmail.com)"
                 />
               </div>
