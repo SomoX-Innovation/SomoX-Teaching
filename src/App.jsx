@@ -20,6 +20,7 @@ import AIAssistant from './pages/User/AIAssistant';
 import OrganizationDashboard from './pages/Organization/OrganizationDashboard';
 import OrganizationUsers from './pages/Organization/OrganizationUsers';
 import OrganizationCourses from './pages/Organization/OrganizationCourses';
+import OrganizationAttendance from './pages/Organization/OrganizationAttendance';
 import OrganizationRecordings from './pages/Organization/OrganizationRecordings';
 import OrganizationTasks from './pages/Organization/OrganizationTasks';
 import OrganizationBlog from './pages/Organization/OrganizationBlog';
@@ -203,6 +204,16 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <OrganizationCourses />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Organization Student Attendance */}
+              <Route 
+                path="/organization/attendance" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="admin">
+                    <OrganizationAttendance />
                   </ProtectedRoute>
                 } 
               />

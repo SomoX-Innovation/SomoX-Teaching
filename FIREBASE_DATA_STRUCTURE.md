@@ -12,14 +12,21 @@ User accounts and their roles.
 {
   email: "user@example.com",
   name: "User Name",
-  role: "admin" | "student",
+  phone: "+1234567890",        // Optional
+  parentPhone: "+1234567890",  // Optional; for students only - parent/guardian phone
+  qrCodeNumber: "STU001",      // Optional; for students - number on printed card, encoded in QR for scan at attendance
+  role: "admin" | "student" | "teacher",
   status: "active" | "inactive",
+  classIds: ["course-id"],     // For students - classes they are enrolled in
+  organizationId: "org-id",    // For org admins/teachers/students
   createdAt: Timestamp,
   updatedAt: Timestamp
 }
 ```
 
-**Document ID:** Firebase Auth UID
+**Document ID:** Firebase Auth UID (or Firestore auto-ID if created without Auth)
+
+**Note:** For students, set **Card / QR Number** when registering or editing. That number is printed on the student card and encoded in the QR code. At attendance, scan the QR (or enter the number) to mark the student present.
 
 ---
 
@@ -140,7 +147,28 @@ Course information.
 
 ---
 
-### 7. `payments` Collection
+### 7. `attendance` Collection
+Student attendance per class per date (organization-managed).
+
+**Document Structure:**
+```javascript
+{
+  classId: "course-doc-id",       // Reference to courses collection
+  date: "2026-01-25",             // YYYY-MM-DD
+  organizationId: "org-id",
+  records: [
+    { userId: "user-id", studentName: "Student Name", status: "present" | "absent" | "late" }
+  ],
+  createdAt: Timestamp,
+  updatedAt: Timestamp
+}
+```
+
+**Note:** One document per class per date. Organization admins manage attendance from **Organization → Attendance**.
+
+---
+
+### 8. `payments` Collection
 Payment transactions.
 
 **Document Structure:**

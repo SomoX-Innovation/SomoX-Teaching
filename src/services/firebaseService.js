@@ -382,6 +382,33 @@ export const coursesService = {
   }
 };
 
+// Attendance Service (student attendance per class per date)
+export const attendanceService = {
+  getByClassAndDate: async (classId, date, organizationId) => {
+    const filters = [
+      { field: 'classId', operator: '==', value: classId },
+      { field: 'date', operator: '==', value: date },
+      { field: 'organizationId', operator: '==', value: organizationId }
+    ];
+    const docs = await getDocuments('attendance', filters, null, 1, false);
+    return docs && docs.length > 0 ? docs[0] : null;
+  },
+  getAllByOrganization: (limitCount = 500, organizationId = null, useCache = false) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    return getDocuments('attendance', filters, { field: 'date', direction: 'desc' }, limitCount, useCache);
+  },
+  save: async (classId, date, organizationId, records) => {
+    clearCache('attendance');
+    const existing = await attendanceService.getByClassAndDate(classId, date, organizationId);
+    const payload = { classId, date, organizationId, records, updatedAt: serverTimestamp() };
+    if (existing && existing.id) {
+      await updateDocument('attendance', existing.id, payload);
+      return existing.id;
+    }
+    return createDocument('attendance', { ...payload, createdAt: serverTimestamp() });
+  }
+};
+
 // Recordings Service
 export const recordingsService = {
   getAll: (limitCount = null, organizationId = null, useCache = true) => {

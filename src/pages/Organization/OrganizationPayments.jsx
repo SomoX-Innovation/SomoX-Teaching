@@ -20,6 +20,7 @@ const OrganizationPayments = () => {
   const [showPaymentsList, setShowPaymentsList] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentPayments, setSelectedStudentPayments] = useState([]);
+  const [paymentSuccessForNotify, setPaymentSuccessForNotify] = useState(null); // { studentName, amount, month, year, className } after recording payment
   const [formData, setFormData] = useState({
     amount: '',
     month: '',
@@ -126,6 +127,7 @@ const OrganizationPayments = () => {
   });
 
   const handleAddPayment = (student) => {
+    setPaymentSuccessForNotify(null);
     setSelectedStudent(student);
     // Set current month and year as default
     const now = new Date();
@@ -483,9 +485,14 @@ const OrganizationPayments = () => {
       }
       
       await loadData();
-      setShowPaymentModal(false);
-      setSelectedStudent(null);
-      resetForm();
+      const className = getClassName(classIds[0]) || getClassNames(classIds);
+      setPaymentSuccessForNotify({
+        studentName: selectedStudent.name || selectedStudent.email,
+        amount: paymentData.amount,
+        month: formData.month,
+        year: formData.year,
+        className
+      });
       if (paymentData.status === 'completed') {
         toast.success(`Payment recorded successfully for ${selectedStudent.name}! Teacher payroll entries have been automatically created and added to pending payments.`);
       } else {
@@ -892,10 +899,23 @@ const OrganizationPayments = () => {
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div className="modal-header">
-              <h2>Add Monthly Payment</h2>
-              <button className="modal-close" onClick={() => setShowPaymentModal(false)}>×</button>
+              <h2>{paymentSuccessForNotify ? 'Payment recorded' : 'Add Monthly Payment'}</h2>
+              <button className="modal-close" onClick={() => { setShowPaymentModal(false); setSelectedStudent(null); setPaymentSuccessForNotify(null); resetForm(); }}>×</button>
             </div>
             <div className="modal-body">
+              {paymentSuccessForNotify ? (
+                <div style={{ padding: '1rem', textAlign: 'center' }}>
+                  <FaCheckCircle style={{ fontSize: '2.5rem', color: '#16a34a', marginBottom: '1rem' }} />
+                  <p style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                    Payment recorded successfully for {paymentSuccessForNotify.studentName}.
+                  </p>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    {formatCurrency(paymentSuccessForNotify.amount)} — {getMonthName(paymentSuccessForNotify.month)} {paymentSuccessForNotify.year}
+                    {paymentSuccessForNotify.className && ` (${paymentSuccessForNotify.className})`}
+                  </p>
+                </div>
+              ) : (
+                <>
               <div style={{ 
                 padding: '1rem', 
                 background: '#eff6ff', 
@@ -1026,14 +1046,28 @@ const OrganizationPayments = () => {
                   rows="3"
                 />
               </div>
+                </>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => {
-                setShowPaymentModal(false);
-                setSelectedStudent(null);
-                resetForm();
-              }}>Cancel</button>
-              <button className="btn-primary" onClick={handleSubmitPayment}>Record Payment</button>
+              {paymentSuccessForNotify ? (
+                <button className="btn-primary" onClick={() => {
+                  setShowPaymentModal(false);
+                  setSelectedStudent(null);
+                  setPaymentSuccessForNotify(null);
+                  resetForm();
+                }}>Close</button>
+              ) : (
+                <>
+                  <button className="btn-secondary" onClick={() => {
+                    setShowPaymentModal(false);
+                    setSelectedStudent(null);
+                    setPaymentSuccessForNotify(null);
+                    resetForm();
+                  }}>Cancel</button>
+                  <button className="btn-primary" onClick={handleSubmitPayment}>Record Payment</button>
+                </>
+              )}
             </div>
           </div>
         </div>

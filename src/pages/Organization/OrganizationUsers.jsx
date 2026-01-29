@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FaUsers, FaSearch, FaPlus, FaEdit, FaTrash, FaFilter, FaDownload, FaSpinner } from 'react-icons/fa';
+import { QRCodeSVG } from 'qrcode.react';
 import { usersService, coursesService, clearCache } from '../../services/firebaseService';
 import { createUserWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
@@ -29,6 +30,8 @@ const OrganizationUsers = () => {
     name: '',
     email: '',
     phone: '',
+    parentPhone: '', // Parent/guardian phone for students
+    qrCodeNumber: '', // Number on printed card (encoded in QR) - for scan at attendance
     role: 'student',
     status: 'active',
     password: '', // For new user creation
@@ -229,6 +232,18 @@ const OrganizationUsers = () => {
         return;
       }
 
+      // Card number must be unique per student (cannot assign same card to another student)
+      const cardNum = (formData.qrCodeNumber || '').trim();
+      if (formData.role === 'student' && cardNum) {
+        const alreadyUsed = users.some(
+          u => (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
+        );
+        if (alreadyUsed) {
+          setError('This card number is already assigned to another student. Please use a different card number.');
+          return;
+        }
+      }
+
       // Password is REQUIRED for students to enable login
       if (formData.role === 'student' && (!formData.password || formData.password.trim() === '')) {
         setError('Password is required for students to enable login access.');
@@ -301,6 +316,10 @@ const OrganizationUsers = () => {
             role: formData.role,
             status: formData.status
           };
+          if (formData.role === 'student') {
+            userData.parentPhone = formData.parentPhone || '';
+            userData.qrCodeNumber = (formData.qrCodeNumber || '').trim();
+          }
           
           // Set organizationId based on role and current user
           if (isSuperAdmin()) {
@@ -396,7 +415,10 @@ const OrganizationUsers = () => {
           role: formData.role,
           status: formData.status
         };
-
+        if (formData.role === 'student') {
+          userData.parentPhone = formData.parentPhone || '';
+          userData.qrCodeNumber = (formData.qrCodeNumber || '').trim();
+        }
         // Add classIds for students
         if (formData.role === 'student' && formData.classIds.length > 0) {
           userData.classIds = formData.classIds;
@@ -445,6 +467,8 @@ const OrganizationUsers = () => {
       name: user.name,
       email: user.email,
       phone: user.phone || '',
+      parentPhone: user.parentPhone || '',
+      qrCodeNumber: user.qrCodeNumber || '',
       role: user.role,
       status: user.status,
       classIds: user.classIds || []
@@ -462,6 +486,18 @@ const OrganizationUsers = () => {
         return;
       }
 
+      // Card number must be unique (cannot assign same card to another student)
+      const cardNum = (formData.qrCodeNumber || '').trim();
+      if (formData.role === 'student' && cardNum) {
+        const alreadyUsed = users.some(
+          u => u.id !== selectedUser.id && (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
+        );
+        if (alreadyUsed) {
+          setError('This card number is already assigned to another student. Please use a different card number.');
+          return;
+        }
+      }
+
       const updateData = {
         name: formData.name,
         email: formData.email,
@@ -469,14 +505,15 @@ const OrganizationUsers = () => {
         role: formData.role,
         status: formData.status
       };
-
-        // Add classIds for students, remove for admins/teachers
-        if (formData.role === 'student') {
-          updateData.classIds = formData.classIds || [];
-        } else {
-          // Remove classIds for admins/teachers
-          updateData.classIds = [];
-        }
+      if (formData.role === 'student') {
+        updateData.parentPhone = formData.parentPhone || '';
+        updateData.qrCodeNumber = (formData.qrCodeNumber || '').trim();
+        updateData.classIds = formData.classIds || [];
+      } else {
+        updateData.parentPhone = '';
+        updateData.qrCodeNumber = '';
+        updateData.classIds = [];
+      }
 
       await usersService.update(selectedUser.id, updateData);
       
@@ -532,6 +569,8 @@ const OrganizationUsers = () => {
       name: '',
       email: '',
       phone: '',
+      parentPhone: '',
+      qrCodeNumber: '',
       role: 'student',
       status: 'active',
       password: '',
@@ -697,6 +736,7 @@ const OrganizationUsers = () => {
         Name: user.name || 'N/A',
         Email: user.email || 'N/A',
         Phone: user.phone || 'N/A',
+        'Parent Phone': user.role === 'student' ? (user.parentPhone || 'N/A') : 'N/A',
         Role: user.role || 'N/A',
         Classes: user.role === 'student' ? getClassNames(user.classIds || user.batchIds) : 'N/A',
         Status: user.status || 'N/A',
@@ -1124,6 +1164,7 @@ const OrganizationUsers = () => {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
+                  <th>Parent Phone</th>
                   <th>Role</th>
                   <th>Classes</th>
                   <th>Status</th>
@@ -1134,7 +1175,7 @@ const OrganizationUsers = () => {
               <tbody>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="empty-state">
+                    <td colSpan="9" className="empty-state">
                       No users found
                     </td>
                   </tr>
@@ -1151,6 +1192,7 @@ const OrganizationUsers = () => {
                       </td>
                       <td>{user.email || 'N/A'}</td>
                       <td>{user.phone || 'N/A'}</td>
+                      <td>{user.role === 'student' ? (user.parentPhone || '—') : '—'}</td>
                       <td>
                         <span className={`role-badge role-${(user.role || 'student').toLowerCase()}`}>
                           {(user.role || 'student').toLowerCase()}
@@ -1274,6 +1316,35 @@ const OrganizationUsers = () => {
                   placeholder="Enter phone number"
                 />
               </div>
+              {formData.role === 'student' && (
+                <div className="form-group">
+                  <label>Parent / Guardian Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.parentPhone}
+                    onChange={(e) => setFormData({...formData, parentPhone: e.target.value})}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    placeholder="Enter parent or guardian phone number"
+                  />
+                </div>
+              )}
+              {formData.role === 'student' && (
+                <div className="form-group">
+                  <label>Card / QR Number</label>
+                  <input
+                    type="text"
+                    value={formData.qrCodeNumber}
+                    onChange={(e) => setFormData({...formData, qrCodeNumber: e.target.value})}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    placeholder="Number on printed card (for QR scan at attendance)"
+                  />
+                  <small style={{ color: '#6b7280', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
+                    Enter the number printed on the student card. Same number is encoded in the QR code for scanning at attendance.
+                  </small>
+                </div>
+              )}
               <div className="form-group">
                 <label>Role</label>
                 <select
@@ -1565,6 +1636,35 @@ const OrganizationUsers = () => {
                   onFocus={(e) => e.stopPropagation()}
                 />
               </div>
+              {formData.role === 'student' && (
+                <div className="form-group">
+                  <label>Parent / Guardian Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.parentPhone}
+                    onChange={(e) => setFormData({...formData, parentPhone: e.target.value})}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    placeholder="Enter parent or guardian phone number"
+                  />
+                </div>
+              )}
+              {formData.role === 'student' && (
+                <div className="form-group">
+                  <label>Card / QR Number</label>
+                  <input
+                    type="text"
+                    value={formData.qrCodeNumber}
+                    onChange={(e) => setFormData({...formData, qrCodeNumber: e.target.value})}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    placeholder="Number on printed card (for QR scan at attendance)"
+                  />
+                  <small style={{ color: '#6b7280', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
+                    Same number is encoded in the QR below. Scan at attendance to mark present.
+                  </small>
+                </div>
+              )}
               <div className="form-group">
                 <label>Role</label>
                 <select
@@ -1639,6 +1739,24 @@ const OrganizationUsers = () => {
                         return course?.title || course?.name;
                       }).filter(Boolean).join(', ')}
                     </div>
+                  )}
+                </div>
+              )}
+              {formData.role === 'student' && selectedUser && (
+                <div className="form-group" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                  <label>Student QR Code (print on card)</label>
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                    QR encodes the Card Number. Scan at attendance to mark present.
+                  </p>
+                  {(formData.qrCodeNumber || selectedUser.qrCodeNumber) ? (
+                    <div style={{ display: 'inline-block', padding: '0.75rem', background: '#fff', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
+                      <QRCodeSVG value={(formData.qrCodeNumber || selectedUser.qrCodeNumber).trim()} size={128} level="M" />
+                      <div style={{ fontSize: '0.75rem', marginTop: '0.5rem', textAlign: 'center', color: '#374151' }}>
+                        {(formData.qrCodeNumber || selectedUser.qrCodeNumber).trim()}
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Enter a Card / QR Number above and save to generate the QR code for printing.</p>
                   )}
                 </div>
               )}

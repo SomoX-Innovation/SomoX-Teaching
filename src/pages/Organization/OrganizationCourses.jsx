@@ -222,15 +222,15 @@ const OrganizationCourses = () => {
         <div className="courses-stats-grid">
           <div className="courses-stat-card">
             <div className="stat-value">{stats.total}</div>
-            <div className="stat-label">Total Courses</div>
+            <div className="stat-label">Total Classes</div>
           </div>
           <div className="courses-stat-card">
             <div className="stat-value">{stats.active}</div>
-            <div className="stat-label">Active Courses</div>
+            <div className="stat-label">Active Classes</div>
           </div>
           <div className="courses-stat-card">
             <div className="stat-value">{stats.draft}</div>
-            <div className="stat-label">Draft Courses</div>
+            <div className="stat-label">Draft Classes</div>
           </div>
           <div className="courses-stat-card">
             <div className="stat-value">{stats.totalStudents}</div>
@@ -349,7 +349,7 @@ const OrganizationCourses = () => {
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Create New Course</h2>
+              <h2>Create New Class</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <div className="modal-body">
@@ -482,86 +482,6 @@ const OrganizationCourses = () => {
                   </small>
                 )}
               </div>
-              <div className="form-group">
-                <label>Assign Teachers (Optional)</label>
-                <div style={{ 
-                  border: '1px solid #e5e7eb', 
-                  borderRadius: '0.5rem', 
-                  padding: '0.75rem',
-                  minHeight: '100px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  backgroundColor: '#f9fafb'
-                }}>
-                  {teachers.length === 0 ? (
-                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No teachers available</p>
-                  ) : (
-                    teachers.map(teacher => {
-                      const isAssigned = formData.assignedTeachers?.includes(teacher.id);
-                      return (
-                        <div
-                          key={teacher.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '0.5rem',
-                            marginBottom: '0.5rem',
-                            backgroundColor: isAssigned ? '#dbeafe' : 'white',
-                            border: `1px solid ${isAssigned ? '#3b82f6' : '#e5e7eb'}`,
-                            borderRadius: '0.375rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                          }}
-                          onClick={() => {
-                            const currentAssigned = formData.assignedTeachers || [];
-                            if (isAssigned) {
-                              setFormData({
-                                ...formData,
-                                assignedTeachers: currentAssigned.filter(id => id !== teacher.id)
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                assignedTeachers: [...currentAssigned, teacher.id]
-                              });
-                            }
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isAssigned) {
-                              e.currentTarget.style.backgroundColor = '#f3f4f6';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isAssigned) {
-                              e.currentTarget.style.backgroundColor = 'white';
-                            }
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isAssigned}
-                            onChange={() => {}} // Handled by parent onClick
-                            style={{ marginRight: '0.75rem', cursor: 'pointer' }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '500', color: '#111827' }}>
-                              {teacher.name || 'Unknown'}
-                            </div>
-                            {teacher.email && (
-                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                {teacher.email}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <small style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
-                  Select teachers who should have access to this class. Teachers can only see classes they created or are assigned to.
-                </small>
-              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Duration</label>
@@ -601,7 +521,7 @@ const OrganizationCourses = () => {
         </div>
       )}
 
-      {/* Edit Course Modal */}
+      {/* Edit Class Modal */}
       {showEditModal && (
         <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -737,86 +657,6 @@ const OrganizationCourses = () => {
                   </small>
                 )}
               </div>
-              <div className="form-group">
-                <label>Assign Teachers (Optional)</label>
-                <div style={{ 
-                  border: '1px solid #e5e7eb', 
-                  borderRadius: '0.5rem', 
-                  padding: '0.75rem',
-                  minHeight: '100px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  backgroundColor: '#f9fafb'
-                }}>
-                  {teachers.length === 0 ? (
-                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No teachers available</p>
-                  ) : (
-                    teachers.map(teacher => {
-                      const isAssigned = formData.assignedTeachers?.includes(teacher.id);
-                      return (
-                        <div
-                          key={teacher.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '0.5rem',
-                            marginBottom: '0.5rem',
-                            backgroundColor: isAssigned ? '#dbeafe' : 'white',
-                            border: `1px solid ${isAssigned ? '#3b82f6' : '#e5e7eb'}`,
-                            borderRadius: '0.375rem',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                          }}
-                          onClick={() => {
-                            const currentAssigned = formData.assignedTeachers || [];
-                            if (isAssigned) {
-                              setFormData({
-                                ...formData,
-                                assignedTeachers: currentAssigned.filter(id => id !== teacher.id)
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                assignedTeachers: [...currentAssigned, teacher.id]
-                              });
-                            }
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isAssigned) {
-                              e.currentTarget.style.backgroundColor = '#f3f4f6';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isAssigned) {
-                              e.currentTarget.style.backgroundColor = 'white';
-                            }
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isAssigned}
-                            onChange={() => {}} // Handled by parent onClick
-                            style={{ marginRight: '0.75rem', cursor: 'pointer' }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '500', color: '#111827' }}>
-                              {teacher.name || 'Unknown'}
-                            </div>
-                            {teacher.email && (
-                              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                                {teacher.email}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <small style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
-                  Select teachers who should have access to this class. Teachers can only see classes they created or are assigned to.
-                </small>
-              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Duration</label>
@@ -848,7 +688,7 @@ const OrganizationCourses = () => {
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
-              <button className="btn-primary" onClick={handleUpdateCourse}>Update Course</button>
+              <button className="btn-primary" onClick={handleUpdateCourse}>Update Class</button>
             </div>
           </div>
         </div>

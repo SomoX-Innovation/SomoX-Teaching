@@ -4,6 +4,7 @@ import {
   FaHome, 
   FaUsers, 
   FaGraduationCap,
+  FaClipboardCheck,
   FaChartBar,
   FaVideo,
   FaTasks,
@@ -148,6 +149,19 @@ const AdminSidebar = () => {
             </Link>
           </li>
 
+          {/* Student Attendance */}
+          <li>
+            <Link 
+              to="/organization/attendance" 
+              className={`nav-link ${isActive('/organization/attendance') ? 'active' : ''}`}
+            >
+              <div className="nav-icon-wrapper">
+                <FaClipboardCheck className="nav-icon" />
+              </div>
+              <span className="nav-text">Attendance</span>
+              <div className="nav-indicator"></div>
+            </Link>
+          </li>
 
           {/* Session Recordings */}
           <li>
