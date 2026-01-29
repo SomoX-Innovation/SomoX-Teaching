@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaTasks, FaSearch, FaPlus, FaEdit, FaTrash, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 import { tasksService } from '../../services/firebaseService';
 import './OrganizationTasks.css';
@@ -12,6 +12,9 @@ const OrganizationTasks = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const addModalErrorRef = useRef(null);
+  const editModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -24,6 +27,13 @@ const OrganizationTasks = () => {
   useEffect(() => {
     loadTasks();
   }, []);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showAddModal) addModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (showEditModal) editModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [error, showAddModal, showEditModal]);
 
   const loadTasks = async () => {
     try {
@@ -140,7 +150,7 @@ const OrganizationTasks = () => {
     <div className="organization-tasks-container">
       <div className="organization-tasks-card">
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -278,6 +288,11 @@ const OrganizationTasks = () => {
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Title</label>
                 <input
@@ -357,6 +372,11 @@ const OrganizationTasks = () => {
               <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={editModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Title</label>
                 <input

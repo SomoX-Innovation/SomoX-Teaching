@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FaDollarSign, FaSearch, FaPlus, FaEdit, FaTrash, FaSpinner, FaCheckCircle, FaTimesCircle, FaUsers, FaCalendar, FaFileInvoiceDollar, FaCalculator, FaPercentage, FaCheckDouble, FaSync, FaCog } from 'react-icons/fa';
@@ -21,6 +21,9 @@ const OrganizationPayroll = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState(null);
+  const addModalErrorRef = useRef(null);
+  const editModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [formData, setFormData] = useState({
     employeeId: '',
     employeeName: '',
@@ -48,6 +51,13 @@ const OrganizationPayroll = () => {
     loadData();
     loadOrganizationSettings();
   }, []);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showAddModal) addModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (showEditModal) editModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [error, showAddModal, showEditModal]);
 
   // Reload settings when component becomes visible (user might have changed settings)
   useEffect(() => {
@@ -840,7 +850,7 @@ const OrganizationPayroll = () => {
     <div className="organization-payroll-container">
       <div className="organization-payroll-card">
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -1269,6 +1279,11 @@ const OrganizationPayroll = () => {
               }}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Employee *</label>
                 <select
@@ -1410,6 +1425,11 @@ const OrganizationPayroll = () => {
               }}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={editModalErrorRef} className="error-message" style={{ marginBottom: '1rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Employee</label>
                 <input

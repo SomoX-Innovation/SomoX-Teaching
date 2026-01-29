@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { FaMoneyBillWave, FaSearch, FaPlus, FaEdit, FaSpinner, FaCheckCircle, FaTimesCircle, FaUsers, FaCalendar, FaGraduationCap, FaList } from 'react-icons/fa';
 import { paymentsService, usersService, coursesService, payrollService, getDocument } from '../../services/firebaseService';
@@ -21,6 +21,8 @@ const OrganizationPayments = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentPayments, setSelectedStudentPayments] = useState([]);
   const [paymentSuccessForNotify, setPaymentSuccessForNotify] = useState(null); // { studentName, amount, month, year, className } after recording payment
+  const paymentModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [formData, setFormData] = useState({
     amount: '',
     month: '',
@@ -36,6 +38,15 @@ const OrganizationPayments = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showPaymentModal && selectedStudent && !paymentSuccessForNotify) {
+      paymentModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [error, showPaymentModal, selectedStudent, paymentSuccessForNotify]);
 
   const loadData = async () => {
     try {
@@ -549,7 +560,7 @@ const OrganizationPayments = () => {
     <div className="organization-payments-container">
       <div className="organization-payments-card">
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -916,6 +927,11 @@ const OrganizationPayments = () => {
                 </div>
               ) : (
                 <>
+              {error && (
+                <div ref={paymentModalErrorRef} className="error-message" style={{ marginBottom: '1rem' }}>
+                  {error}
+                </div>
+              )}
               <div style={{ 
                 padding: '1rem', 
                 background: '#eff6ff', 

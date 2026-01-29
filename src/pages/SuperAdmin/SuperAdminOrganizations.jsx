@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   FaBuilding, 
   FaPlus, 
@@ -36,6 +36,9 @@ const SuperAdminOrganizations = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState(null);
+  const addModalErrorRef = useRef(null);
+  const editModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [orgUsers, setOrgUsers] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -341,7 +344,7 @@ const SuperAdminOrganizations = () => {
     <div className="superadmin-orgs-container">
       <div className="superadmin-orgs-card">
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -509,6 +512,11 @@ const SuperAdminOrganizations = () => {
               <button className="modal-close" onClick={() => { setShowAddModal(false); resetForm(); }}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Organization Name *</label>
                 <input
@@ -620,6 +628,11 @@ const SuperAdminOrganizations = () => {
               <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={editModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Organization Name *</label>
                 <input

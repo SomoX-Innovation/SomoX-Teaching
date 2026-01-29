@@ -89,7 +89,7 @@ const OrganizationAttendance = () => {
           studentName: s.name || s.email || 'Unknown',
           qrCodeNumber: (s.qrCodeNumber || '').trim(),
           parentPhone: (s.parentPhone || '').trim(),
-          status: byUserId[s.id] || 'present'
+          status: byUserId[s.id] || 'absent'
         })));
       } else {
         setRecords(studentList.map(s => ({
@@ -97,7 +97,7 @@ const OrganizationAttendance = () => {
           studentName: s.name || s.email || 'Unknown',
           qrCodeNumber: (s.qrCodeNumber || '').trim(),
           parentPhone: (s.parentPhone || '').trim(),
-          status: 'present'
+          status: 'absent'
         })));
       }
     } catch (err) {
@@ -113,7 +113,7 @@ const OrganizationAttendance = () => {
         studentName: s.name || s.email || 'Unknown',
         qrCodeNumber: (s.qrCodeNumber || '').trim(),
         parentPhone: (s.parentPhone || '').trim(),
-        status: 'present'
+        status: 'absent'
       })));
     }
   };
@@ -171,6 +171,8 @@ const OrganizationAttendance = () => {
       setSaving(false);
     }
   };
+
+  const selectedClass = classes.find(c => c.id === selectedClassId);
 
   return (
     <div className="organization-attendance-container">

@@ -281,6 +281,17 @@ service cloud.firestore {
                        request.resource.data.userId == request.auth.uid;
     }
     
+    // Attendance collection (read uses resource only; write uses request.resource for create)
+    match /attendance/{attendanceId} {
+      allow read: if isSuperAdmin() ||
+                     (isOrganizationAdmin() && resource.data.organizationId == getUserOrganizationId());
+      allow create: if isSuperAdmin() ||
+                       (isOrganizationAdmin() && request.resource.data.organizationId == getUserOrganizationId());
+      allow update, delete: if isSuperAdmin() ||
+                               (isOrganizationAdmin() && resource.data.organizationId == getUserOrganizationId() &&
+                                request.resource.data.organizationId == getUserOrganizationId());
+    }
+
     // Payroll collection
     match /payroll/{payrollId} {
       // SuperAdmin can read and write all payroll

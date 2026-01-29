@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   FaUserShield,
   FaBuilding,
@@ -26,6 +26,8 @@ const SuperAdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const addModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [formData, setFormData] = useState({
     organizationName: '',
     adminName: '',
@@ -42,6 +44,12 @@ const SuperAdminUsers = () => {
     }
     loadOrganizations();
   }, [isSuperAdmin, navigate]);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showAddModal) addModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [error, showAddModal]);
 
   const loadOrganizations = async () => {
     try {
@@ -254,7 +262,7 @@ const SuperAdminUsers = () => {
 
         {/* Error/Success Messages */}
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -364,6 +372,11 @@ const SuperAdminUsers = () => {
               <button className="modal-close" onClick={() => { setShowAddModal(false); resetForm(); }}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <form onSubmit={handleCreateOrganizationAdmin}>
                 <div className="form-section">
                   <h3 className="form-section-title">

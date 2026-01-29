@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { FaVideo, FaSearch, FaPlus, FaEdit, FaTrash, FaDownload, FaSpinner, FaCalendar, FaUsers, FaGraduationCap } from 'react-icons/fa';
 import { recordingsService, batchesService, coursesService } from '../../services/firebaseService';
@@ -14,6 +14,9 @@ const OrganizationRecordings = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
+  const addModalErrorRef = useRef(null);
+  const editModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [batches, setBatches] = useState([]);
   const [courses, setCourses] = useState([]);
   const [formData, setFormData] = useState({
@@ -33,6 +36,13 @@ const OrganizationRecordings = () => {
     loadBatches();
     loadCourses();
   }, []);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showAddModal) addModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (showEditModal) editModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [error, showAddModal, showEditModal]);
 
   const loadBatches = async () => {
     try {
@@ -235,7 +245,7 @@ const OrganizationRecordings = () => {
     <div className="organization-recordings-container">
       <div className="organization-recordings-card">
         {error && (
-          <div className="error-message">
+          <div ref={pageErrorRef} className="error-message">
             {error}
           </div>
         )}
@@ -564,6 +574,11 @@ const OrganizationRecordings = () => {
               </div>
             )}
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Title</label>
                 <input
@@ -753,6 +768,11 @@ const OrganizationRecordings = () => {
               <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={editModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Title</label>
                 <input

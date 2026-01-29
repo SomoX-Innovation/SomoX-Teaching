@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaUsers, FaSearch, FaPlus, FaEdit, FaTrash, FaFilter, FaDownload, FaSpinner } from 'react-icons/fa';
 import { QRCodeSVG } from 'qrcode.react';
 import { usersService, coursesService, clearCache } from '../../services/firebaseService';
@@ -24,6 +24,10 @@ const OrganizationUsers = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const addModalErrorRef = useRef(null);
+  const editModalErrorRef = useRef(null);
+  const createOrgModalErrorRef = useRef(null);
+  const pageErrorRef = useRef(null);
   const [courses, setCourses] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [formData, setFormData] = useState({
@@ -79,6 +83,14 @@ const OrganizationUsers = () => {
       loadOrganizations();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!error) return;
+    if (showAddModal) addModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (showEditModal) editModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (showCreateOrgModal) createOrgModalErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else pageErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [error, showAddModal, showEditModal, showCreateOrgModal]);
 
   const loadCourses = async () => {
     try {
@@ -235,11 +247,11 @@ const OrganizationUsers = () => {
       // Card number must be unique per student (cannot assign same card to another student)
       const cardNum = (formData.qrCodeNumber || '').trim();
       if (formData.role === 'student' && cardNum) {
-        const alreadyUsed = users.some(
+        const assignedStudent = users.find(
           u => (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
         );
-        if (alreadyUsed) {
-          setError('This card number is already assigned to another student. Please use a different card number.');
+        if (assignedStudent) {
+          setError(`This card number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different card number.`);
           return;
         }
       }
@@ -489,11 +501,11 @@ const OrganizationUsers = () => {
       // Card number must be unique (cannot assign same card to another student)
       const cardNum = (formData.qrCodeNumber || '').trim();
       if (formData.role === 'student' && cardNum) {
-        const alreadyUsed = users.some(
+        const assignedStudent = users.find(
           u => u.id !== selectedUser.id && (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
         );
-        if (alreadyUsed) {
-          setError('This card number is already assigned to another student. Please use a different card number.');
+        if (assignedStudent) {
+          setError(`This card number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different card number.`);
           return;
         }
       }
@@ -842,7 +854,7 @@ const OrganizationUsers = () => {
     <div className="organization-users-container">
       <div className="organization-users-card">
         {error && (
-          <div className="error-message" style={{ 
+          <div ref={pageErrorRef} className="error-message" style={{ 
             padding: '1rem', 
             background: 'rgba(239, 68, 68, 0.1)', 
             color: '#ef4444', 
@@ -1274,6 +1286,11 @@ const OrganizationUsers = () => {
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={addModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Full Name</label>
                 <input
@@ -1502,6 +1519,11 @@ const OrganizationUsers = () => {
               <button className="modal-close" onClick={() => setShowCreateOrgModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={createOrgModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Organization Name *</label>
                 <input
@@ -1604,6 +1626,11 @@ const OrganizationUsers = () => {
               <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {error && (
+                <div ref={editModalErrorRef} className="error-message" style={{ marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem' }}>
+                  {error}
+                </div>
+              )}
               <div className="form-group">
                 <label>Full Name</label>
                 <input
