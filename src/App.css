@@ -28,6 +28,11 @@ body {
   min-height: 100vh;
 }
 
+/* Main content when organization sidebar is collapsed */
+.app-container.sidebar-collapsed .main-content {
+  margin-left: 72px;
+}
+
 /* Decorative Background Elements */
 .app-container::before {
   content: '';

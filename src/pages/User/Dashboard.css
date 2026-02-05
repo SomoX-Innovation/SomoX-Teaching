@@ -95,6 +95,40 @@
   color: var(--text-primary);
 }
 
+/* Divide class tutes - separate button */
+.dashboard-divide-tutes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, var(--primary), var(--secondary, #8b5cf6));
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0.75rem;
+  border: none;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.dashboard-divide-tutes-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  color: white;
+  opacity: 0.95;
+}
+
+.dashboard-divide-tutes-btn .divide-tutes-icon {
+  font-size: 1.25rem;
+}
+
+.dashboard-divide-tutes-btn .divide-tutes-arrow {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
 /* Stats Container */
 .stats-container {
   display: grid;

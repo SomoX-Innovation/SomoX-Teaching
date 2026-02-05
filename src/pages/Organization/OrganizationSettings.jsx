@@ -15,6 +15,7 @@ const OrganizationSettings = () => {
     siteDescription: 'Learn and grow with Somox Learning',
     siteEmail: 'admin@somoxlearning.com',
     sitePhone: '+1 (555) 123-4567',
+    logoUrl: '', // Organization logo URL – shown in sidebar after login
     maintenanceMode: false,
     allowRegistrations: true,
     emailNotifications: true,
@@ -151,6 +152,18 @@ const OrganizationSettings = () => {
                   value={settings.siteName}
                   onChange={(e) => handleChange('siteName', e.target.value)}
                 />
+              </div>
+              <div className="form-group">
+                <label>Organization Logo URL</label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={settings.logoUrl || ''}
+                  onChange={(e) => handleChange('logoUrl', e.target.value)}
+                />
+                <p className="form-description">
+                  Logo shown in the sidebar after organization login. Leave empty to use the default Somox logo.
+                </p>
               </div>
               <div className="form-group">
                 <label>Site Description</label>

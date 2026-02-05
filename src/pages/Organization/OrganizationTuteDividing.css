@@ -1,0 +1,318 @@
+.org-tute-dividing-container {
+  padding: 1.5rem;
+  min-height: 100vh;
+  background: var(--bg-secondary);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.org-tute-dividing-card {
+  background: var(--bg-primary);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  transition: all var(--transition-slow);
+}
+
+.org-tute-dividing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+}
+
+.header-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--primary);
+}
+
+.org-tute-dividing-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.org-tute-dividing-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.org-tute-dividing-container .breadcrumb {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.org-tute-dividing-container .breadcrumb-list {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 0.5rem;
+}
+
+.org-tute-dividing-container .breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.org-tute-dividing-container .breadcrumb-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--primary);
+  margin-right: 0.25rem;
+}
+
+.org-tute-dividing-container .breadcrumb-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.org-tute-dividing-container .breadcrumb-link:hover {
+  color: var(--primary);
+}
+
+.org-tute-dividing-container .breadcrumb-sep {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.org-tute-dividing-container .breadcrumb-current {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+}
+
+.loading-state .spin {
+  font-size: 2rem;
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.empty-state .empty-icon {
+  font-size: 3rem;
+  color: var(--text-tertiary);
+  margin-bottom: 1rem;
+}
+
+.empty-state .empty-hint {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0.5rem 0 1rem 0;
+}
+
+.empty-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: white;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.empty-link:hover {
+  opacity: 0.95;
+  color: white;
+}
+
+.empty-state-inline {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+
+.filters-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+
+.form-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.form-group-inline label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.form-select {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.9375rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color var(--transition-base);
+  min-width: 140px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.students-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+
+.students-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.students-table th,
+.students-table td {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.students-table th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.students-table tbody tr:hover {
+  background: var(--bg-tertiary);
+}
+
+.students-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.student-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.book-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.book-status.book-received {
+  color: #059669;
+}
+
+.book-status.book-not-received {
+  color: #dc2626;
+}
+
+.btn-mark-received,
+.btn-mark-not-received {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.875rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-mark-received {
+  background: rgba(5, 150, 105, 0.15);
+  color: #059669;
+}
+
+.btn-mark-received:hover:not(:disabled) {
+  background: rgba(5, 150, 105, 0.25);
+}
+
+.btn-mark-not-received {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.btn-mark-not-received:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+.btn-mark-received:disabled,
+.btn-mark-not-received:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin-inline {
+  font-size: 0.875rem;
+  animation: spin 1s linear infinite;
+}

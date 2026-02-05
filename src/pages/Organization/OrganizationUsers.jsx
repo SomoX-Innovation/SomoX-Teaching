@@ -35,11 +35,12 @@ const OrganizationUsers = () => {
     email: '',
     phone: '',
     parentPhone: '', // Parent/guardian phone for students
-    qrCodeNumber: '', // Number on printed card (encoded in QR) - for scan at attendance
+    qrCodeNumber: '', // NFC card or QR number — same value for scan at attendance (QR or NFC)
     role: 'student',
     status: 'active',
     password: '', // For new user creation
     classIds: [], // Array of class IDs for students
+    freeClassIds: [], // Classes with free access (no fee) for this student
     organizationId: '', // Organization ID for admins
     organizationName: '' // For creating new organization (superAdmin only)
   });
@@ -251,7 +252,7 @@ const OrganizationUsers = () => {
           u => (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
         );
         if (assignedStudent) {
-          setError(`This card number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different card number.`);
+          setError(`This NFC card or QR number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different number.`);
           return;
         }
       }
@@ -354,6 +355,7 @@ const OrganizationUsers = () => {
           
           if (formData.role === 'student' && formData.classIds.length > 0) {
             userData.classIds = formData.classIds;
+            userData.freeClassIds = formData.freeClassIds || [];
           }
           
           // Use the user's UID as document ID
@@ -431,9 +433,10 @@ const OrganizationUsers = () => {
           userData.parentPhone = formData.parentPhone || '';
           userData.qrCodeNumber = (formData.qrCodeNumber || '').trim();
         }
-        // Add classIds for students
+        // Add classIds and freeClassIds for students
         if (formData.role === 'student' && formData.classIds.length > 0) {
           userData.classIds = formData.classIds;
+          userData.freeClassIds = formData.freeClassIds || [];
         }
 
         const docId = await usersService.create(userData);
@@ -483,7 +486,8 @@ const OrganizationUsers = () => {
       qrCodeNumber: user.qrCodeNumber || '',
       role: user.role,
       status: user.status,
-      classIds: user.classIds || []
+      classIds: user.classIds || [],
+      freeClassIds: user.freeClassIds || []
     });
     setShowEditModal(true);
   };
@@ -505,7 +509,7 @@ const OrganizationUsers = () => {
           u => u.id !== selectedUser.id && (u.role || '').toLowerCase() === 'student' && (u.qrCodeNumber || '').trim() === cardNum
         );
         if (assignedStudent) {
-          setError(`This card number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different card number.`);
+          setError(`This NFC card or QR number is already assigned to student "${assignedStudent.name || assignedStudent.email || 'Unknown'}". Please use a different number.`);
           return;
         }
       }
@@ -521,10 +525,12 @@ const OrganizationUsers = () => {
         updateData.parentPhone = formData.parentPhone || '';
         updateData.qrCodeNumber = (formData.qrCodeNumber || '').trim();
         updateData.classIds = formData.classIds || [];
+        updateData.freeClassIds = formData.freeClassIds || [];
       } else {
         updateData.parentPhone = '';
         updateData.qrCodeNumber = '';
         updateData.classIds = [];
+        updateData.freeClassIds = [];
       }
 
       await usersService.update(selectedUser.id, updateData);
@@ -587,9 +593,30 @@ const OrganizationUsers = () => {
       status: 'active',
       password: '',
       classIds: [],
+      freeClassIds: [],
       organizationId: '',
       organizationName: ''
     });
+  };
+
+  /** Next available student number (001, 002, ...) from existing students' qrCodeNumbers. */
+  const getNextAvailableStudentNumber = (userList) => {
+    const students = (userList || users).filter(u => (u.role || '').toLowerCase() === 'student');
+    let max = 0;
+    students.forEach(u => {
+      const raw = (u.qrCodeNumber || '').trim();
+      if (!raw) return;
+      const num = parseInt(raw.replace(/\D/g, '') || '0', 10);
+      if (!Number.isNaN(num) && num > max) max = num;
+    });
+    return String(max + 1).padStart(3, '0');
+  };
+
+  const handleOpenAddModal = () => {
+    resetForm();
+    setFormData(prev => ({ ...prev, qrCodeNumber: getNextAvailableStudentNumber(users) }));
+    setShowAddModal(true);
+    setError(null);
   };
 
   const handleCreateOrganization = async () => {
@@ -697,16 +724,27 @@ const OrganizationUsers = () => {
 
   const handleClassToggle = (classId) => {
     const currentClassIds = formData.classIds || [];
+    const currentFreeClassIds = formData.freeClassIds || [];
     if (currentClassIds.includes(classId)) {
       setFormData({
         ...formData,
-        classIds: currentClassIds.filter(id => id !== classId)
+        classIds: currentClassIds.filter(id => id !== classId),
+        freeClassIds: currentFreeClassIds.filter(id => id !== classId)
       });
     } else {
       setFormData({
         ...formData,
         classIds: [...currentClassIds, classId]
       });
+    }
+  };
+
+  const handleFreeClassToggle = (classId) => {
+    const currentFreeClassIds = formData.freeClassIds || [];
+    if (currentFreeClassIds.includes(classId)) {
+      setFormData({ ...formData, freeClassIds: currentFreeClassIds.filter(id => id !== classId) });
+    } else {
+      setFormData({ ...formData, freeClassIds: [...currentFreeClassIds, classId] });
     }
   };
 
@@ -1002,7 +1040,7 @@ const OrganizationUsers = () => {
                 Create Organization
               </button>
             )}
-            <button className="add-user-btn" onClick={() => setShowAddModal(true)}>
+            <button className="add-user-btn" onClick={handleOpenAddModal}>
               <FaPlus className="btn-icon" />
               Add User
             </button>
@@ -1348,17 +1386,17 @@ const OrganizationUsers = () => {
               )}
               {formData.role === 'student' && (
                 <div className="form-group">
-                  <label>Card / QR Number</label>
+                  <label>Student number / NFC card or QR number</label>
                   <input
                     type="text"
                     value={formData.qrCodeNumber}
                     onChange={(e) => setFormData({...formData, qrCodeNumber: e.target.value})}
                     onKeyDown={(e) => e.stopPropagation()}
                     onFocus={(e) => e.stopPropagation()}
-                    placeholder="Number on printed card (for QR scan at attendance)"
+                    placeholder="Auto-filled from 001; change if needed"
                   />
                   <small style={{ color: '#6b7280', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>
-                    Enter the number printed on the student card. Same number is encoded in the QR code for scanning at attendance.
+                    Auto-filled with next available number (001, 002, …). You can change it. Same number is encoded in the QR code for scanning at attendance.
                   </small>
                 </div>
               )}
@@ -1368,11 +1406,14 @@ const OrganizationUsers = () => {
                   value={formData.role}
                   onChange={(e) => {
                     const newRole = e.target.value;
+                    const nextNumber = newRole === 'student' ? getNextAvailableStudentNumber(users) : '';
                     setFormData({
                       ...formData, 
                       role: newRole,
                       classIds: newRole === 'student' ? formData.classIds : [], // Clear classes if not student
-                      organizationId: newRole === 'admin' && isSuperAdmin() ? formData.organizationId : '' // Keep org for superAdmin creating admin
+                      freeClassIds: newRole === 'student' ? formData.freeClassIds : [],
+                      organizationId: newRole === 'admin' && isSuperAdmin() ? formData.organizationId : '', // Keep org for superAdmin creating admin
+                      qrCodeNumber: newRole === 'student' && !formData.qrCodeNumber ? nextNumber : (newRole === 'student' ? formData.qrCodeNumber : '')
                     });
                   }}
                 >
@@ -1454,6 +1495,27 @@ const OrganizationUsers = () => {
                         const course = courses.find(c => c.id === id);
                         return course?.title || course?.name;
                       }).filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  {formData.role === 'student' && formData.classIds?.length > 0 && (
+                    <div className="form-group" style={{ marginTop: '1rem' }}>
+                      <label>Free access (no fee) for these classes</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                        Check classes this student can attend without paying the class fee.
+                      </p>
+                      <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                        {courses.filter(c => formData.classIds?.includes(c.id)).map(course => (
+                          <label key={course.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', cursor: 'pointer', borderRadius: '0.375rem', marginBottom: '0.25rem' }} onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <input type="checkbox" checked={formData.freeClassIds?.includes(course.id) || false} onChange={() => handleFreeClassToggle(course.id)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }} />
+                            <span style={{ fontSize: '0.875rem', color: '#374151' }}>{course.title || course.name || 'Untitled'}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {formData.freeClassIds?.length > 0 && (
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#059669' }}>
+                          Free for: {formData.freeClassIds.map(id => courses.find(c => c.id === id)?.title || courses.find(c => c.id === id)?.name).filter(Boolean).join(', ')}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1678,7 +1740,7 @@ const OrganizationUsers = () => {
               )}
               {formData.role === 'student' && (
                 <div className="form-group">
-                  <label>Card / QR Number</label>
+                  <label>NFC card or QR number</label>
                   <input
                     type="text"
                     value={formData.qrCodeNumber}
@@ -1701,7 +1763,8 @@ const OrganizationUsers = () => {
                     setFormData({
                       ...formData, 
                       role: newRole,
-                      classIds: newRole === 'student' ? formData.classIds : [] // Clear classes if not student
+                      classIds: newRole === 'student' ? formData.classIds : [], // Clear classes if not student
+                      freeClassIds: newRole === 'student' ? formData.freeClassIds : []
                     });
                   }}
                 >
@@ -1767,13 +1830,30 @@ const OrganizationUsers = () => {
                       }).filter(Boolean).join(', ')}
                     </div>
                   )}
+                  {formData.role === 'student' && formData.classIds?.length > 0 && (
+                    <div className="form-group" style={{ marginTop: '1rem' }}>
+                      <label>Free access (no fee) for these classes</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>Check classes this student can attend without paying the class fee.</p>
+                      <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                        {courses.filter(c => formData.classIds?.includes(c.id)).map(course => (
+                          <label key={course.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', cursor: 'pointer', borderRadius: '0.375rem', marginBottom: '0.25rem' }} onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <input type="checkbox" checked={formData.freeClassIds?.includes(course.id) || false} onChange={() => handleFreeClassToggle(course.id)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }} />
+                            <span style={{ fontSize: '0.875rem', color: '#374151' }}>{course.title || course.name || 'Untitled'}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {formData.freeClassIds?.length > 0 && (
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#059669' }}>Free for: {formData.freeClassIds.map(id => courses.find(c => c.id === id)?.title || courses.find(c => c.id === id)?.name).filter(Boolean).join(', ')}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               {formData.role === 'student' && selectedUser && (
                 <div className="form-group" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1rem', marginTop: '0.5rem' }}>
                   <label>Student QR Code (print on card)</label>
                   <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                    QR encodes the Card Number. Scan at attendance to mark present.
+                    Same number works for QR code and NFC card. Scan at attendance (QR or NFC) to mark present.
                   </p>
                   {(formData.qrCodeNumber || selectedUser.qrCodeNumber) ? (
                     <div style={{ display: 'inline-block', padding: '0.75rem', background: '#fff', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
@@ -1783,7 +1863,7 @@ const OrganizationUsers = () => {
                       </div>
                     </div>
                   ) : (
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Enter a Card / QR Number above and save to generate the QR code for printing.</p>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Enter NFC card or QR number above and save to generate the QR code for printing (same number can be written to NFC card).</p>
                   )}
                 </div>
               )}

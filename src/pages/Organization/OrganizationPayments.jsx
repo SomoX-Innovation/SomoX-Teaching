@@ -137,24 +137,33 @@ const OrganizationPayments = () => {
     return matchesSearch && matchesClass;
   });
 
+  const getDefaultAmountForClass = (classId) => {
+    if (!classId) return '';
+    const course = courses.find(c => c.id === classId);
+    if (course?.price == null || course?.price === '') return '';
+    const price = course.price;
+    if (typeof price === 'number') return String(price);
+    const parsed = String(price).replace(/[^0-9.]/g, '');
+    return parsed || '';
+  };
+
   const handleAddPayment = (student) => {
     setPaymentSuccessForNotify(null);
     setSelectedStudent(student);
-    // Set current month and year as default
     const now = new Date();
-    
-    // Get student's enrolled classes
     const studentClassIds = student.classIds || student.batchIds || [];
-    
+    const preSelectedClassId = studentClassIds.length === 1 ? studentClassIds[0] : '';
+    const defaultAmount = getDefaultAmountForClass(preSelectedClassId);
+
     setFormData({
-      amount: '',
+      amount: defaultAmount,
       month: (now.getMonth() + 1).toString().padStart(2, '0'),
       year: now.getFullYear().toString(),
       status: 'completed',
       paymentMethod: '',
       transactionId: '',
       notes: '',
-      classId: studentClassIds.length === 1 ? studentClassIds[0] : '',
+      classId: preSelectedClassId,
       classIds: studentClassIds.length > 1 ? studentClassIds : []
     });
     setShowPaymentModal(true);
@@ -949,12 +958,13 @@ const OrganizationPayments = () => {
                   value={formData.classId}
                   onChange={(e) => {
                     const selectedClassId = e.target.value;
-                    // If student is enrolled in this class, pre-fill it
                     const studentClassIds = selectedStudent.classIds || selectedStudent.batchIds || [];
+                    const defaultAmount = getDefaultAmountForClass(selectedClassId);
                     setFormData({
                       ...formData,
                       classId: selectedClassId,
-                      classIds: selectedClassId ? [selectedClassId] : []
+                      classIds: selectedClassId ? [selectedClassId] : [],
+                      amount: defaultAmount
                     });
                   }}
                   required

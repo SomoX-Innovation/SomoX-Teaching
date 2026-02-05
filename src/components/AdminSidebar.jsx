@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FaHome, 
@@ -8,25 +8,39 @@ import {
   FaChartBar,
   FaVideo,
   FaTasks,
-  FaRobot,
   FaChevronDown,
   FaUser,
   FaSignOutAlt,
   FaCog,
   FaBook,
   FaMoneyBillWave,
-  FaFileInvoiceDollar
+  FaFileInvoiceDollar,
+  FaChevronLeft,
+  FaChevronRight
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { getDocument } from '../services/firebaseService';
 import ThemeToggle from './ThemeToggle';
 import './Sidebar.css';
 
-const AdminSidebar = () => {
+const AdminSidebar = ({ collapsed = false, onToggleCollapse }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
+  const [organization, setOrganization] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, getOrganizationId, logout } = useAuth();
+
+  useEffect(() => {
+    const orgId = getOrganizationId?.() || user?.organizationId;
+    if (orgId) {
+      getDocument('organizations', orgId)
+        .then((org) => setOrganization(org))
+        .catch(() => setOrganization(null));
+    } else {
+      setOrganization(null);
+    }
+  }, [user?.organizationId, getOrganizationId]);
 
   const toggleSubmenu = (menu) => {
     setOpenSubmenu(openSubmenu === menu ? null : menu);
@@ -46,15 +60,30 @@ const AdminSidebar = () => {
     navigate('/');
   };
 
+  const logoUrl = organization?.logoUrl || organization?.logo || '/assets/logo.png';
+  const logoAlt = organization?.name ? `${organization.name} Logo` : 'Somox Learning Logo';
+
   return (
-    <aside id="logo-sidebar" className="sidebar" aria-label="Admin Sidebar">
+    <aside id="logo-sidebar" className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Admin Sidebar">
       <div className="sidebar-content">
+        {/* Expand/Collapse Toggle */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <FaChevronRight className="sidebar-toggle-icon" /> : <FaChevronLeft className="sidebar-toggle-icon" />}
+          </button>
+        )}
+
         {/* Logo */}
         <Link to="/organization/dashboard" className="logo-container">
           <div className="logo-wrapper">
             <img 
-              src="/assets/logo.png" 
-              alt="Somox Learning Logo" 
+              src={logoUrl} 
+              alt={logoAlt} 
               className="logo-image"
             />
             <div className="logo-glow"></div>
@@ -145,6 +174,20 @@ const AdminSidebar = () => {
                 <FaGraduationCap className="nav-icon" />
               </div>
               <span className="nav-text">Classes</span>
+              <div className="nav-indicator"></div>
+            </Link>
+          </li>
+
+          {/* Tute dividing - assign tutors to classes (organization only) */}
+          <li>
+            <Link 
+              to="/organization/tute-dividing" 
+              className={`nav-link ${isActive('/organization/tute-dividing') ? 'active' : ''}`}
+            >
+              <div className="nav-icon-wrapper">
+                <FaBook className="nav-icon" />
+              </div>
+              <span className="nav-text">Tute dividing</span>
               <div className="nav-indicator"></div>
             </Link>
           </li>

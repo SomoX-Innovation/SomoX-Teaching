@@ -7,7 +7,8 @@ import {
   FaVideo, 
   FaChevronDown,
   FaUser,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaChalkboardTeacher
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -188,6 +189,20 @@ const Sidebar = () => {
                 <FaVideo className="nav-icon" />
               </div>
               <span className="nav-text">Zoom Sessions</span>
+              <div className="nav-indicator"></div>
+            </Link>
+          </li>
+
+          {/* My Tutor (Tutor dividing) */}
+          <li>
+            <Link 
+              to="/dashboard/my-tutor" 
+              className={`nav-link ${isActive('/dashboard/my-tutor') ? 'active' : ''}`}
+            >
+              <div className="nav-icon-wrapper">
+                <FaChalkboardTeacher className="nav-icon" />
+              </div>
+              <span className="nav-text">My Tutor</span>
               <div className="nav-indicator"></div>
             </Link>
           </li>

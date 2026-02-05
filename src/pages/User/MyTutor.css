@@ -1,0 +1,247 @@
+.my-tutor-container {
+  padding: 1.5rem;
+  min-height: 100vh;
+  background: var(--bg-secondary);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.my-tutor-card {
+  background: var(--bg-primary);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-xl);
+  padding: 1.5rem;
+  min-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-slow);
+}
+
+.my-tutor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.my-tutor-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.my-tutor-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0 0;
+}
+
+.my-tutor-container .breadcrumb {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+.my-tutor-container .breadcrumb-list {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 0.5rem;
+}
+
+.my-tutor-container .breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.my-tutor-container .breadcrumb-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--primary);
+  margin-right: 0.25rem;
+}
+
+.my-tutor-container .breadcrumb-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.my-tutor-container .breadcrumb-link:hover {
+  color: var(--primary);
+}
+
+.my-tutor-container .breadcrumb-sep {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.my-tutor-container .breadcrumb-current {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.my-tutor-loading,
+.my-tutor-error,
+.my-tutor-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.my-tutor-loading .spin,
+.my-tutor-loading p {
+  margin: 0.5rem 0;
+}
+
+.my-tutor-loading .spin {
+  font-size: 2rem;
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.my-tutor-error p {
+  color: var(--danger, #dc3545);
+  margin: 0;
+}
+
+.my-tutor-empty .empty-icon {
+  font-size: 3rem;
+  color: var(--text-tertiary);
+  margin-bottom: 1rem;
+}
+
+.my-tutor-empty .empty-hint {
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  max-width: 28rem;
+}
+
+.tutor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.tutor-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all var(--transition-base);
+}
+
+.tutor-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.tutor-avatar {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary, #8b5cf6));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+}
+
+.tutor-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.tutor-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--primary);
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+}
+
+.tutor-email:hover {
+  text-decoration: underline;
+}
+
+.tutor-phone {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+
+.tutor-courses {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.tutor-courses-icon {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  margin-right: 0.35rem;
+}
+
+.tutor-courses-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.tutor-courses-list {
+  list-style: none;
+  padding: 0.5rem 0 0 0;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.tutor-courses-list li {
+  padding: 0.2rem 0;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.tutor-courses-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+}

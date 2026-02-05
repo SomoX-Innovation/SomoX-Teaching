@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FaClipboardCheck, FaCalendarAlt, FaGraduationCap, FaUsers, FaSpinner, FaSave, FaQrcode } from 'react-icons/fa';
-import { coursesService, usersService, attendanceService } from '../../services/firebaseService';
+import { FaClipboardCheck, FaCalendarAlt, FaGraduationCap, FaUsers, FaSpinner, FaSave, FaQrcode, FaExclamationTriangle, FaDollarSign } from 'react-icons/fa';
+import { coursesService, usersService, attendanceService, paymentsService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
+import { serverTimestamp } from 'firebase/firestore';
 import './OrganizationAttendance.css';
 
 const STATUS_OPTIONS = [
@@ -24,8 +25,13 @@ const OrganizationAttendance = () => {
     return d.toISOString().slice(0, 10);
   });
   const [records, setRecords] = useState([]); // { userId, studentName, status }
-  const [scanInputValue, setScanInputValue] = useState(''); // Card number from QR scan or manual entry
+  const [scanInputValue, setScanInputValue] = useState(''); // NFC card or QR number from scan or manual entry
   const [scanMessage, setScanMessage] = useState(null); // Brief success/error after scan
+  const [payments, setPayments] = useState([]); // For fee status (month/year vs class)
+  const [showQuickPayModal, setShowQuickPayModal] = useState(false);
+  const [quickPayRecord, setQuickPayRecord] = useState(null); // { userId, studentName }
+  const [quickPayAmount, setQuickPayAmount] = useState('');
+  const [quickPaySaving, setQuickPaySaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -40,12 +46,14 @@ const OrganizationAttendance = () => {
         setError('Organization ID is missing.');
         return;
       }
-      const [coursesData, usersData] = await Promise.all([
+      const [coursesData, usersData, paymentsData] = await Promise.all([
         coursesService.getAll(1000, orgId),
-        usersService.getAll(1000, orgId)
+        usersService.getAll(1000, orgId),
+        paymentsService.getAll(2000, orgId, false)
       ]);
       setClasses(coursesData || []);
       setUsers(usersData || []);
+      setPayments(paymentsData || []);
       if (coursesData?.length > 0 && !selectedClassId) {
         setSelectedClassId(coursesData[0].id);
       }
@@ -122,29 +130,98 @@ const OrganizationAttendance = () => {
     setRecords(prev => prev.map(r => r.userId === userId ? { ...r, status } : r));
   };
 
-  // Mark present by card number (from QR scan or manual input)
-  const handleMarkByCardNumber = () => {
-    const num = (scanInputValue || '').trim();
+  // Mark present by card number (QR/manual/NFC) or by student name. Pass overrideValue when scanning NFC.
+  const handleMarkByCardOrName = (overrideValue = null) => {
+    const input = (overrideValue !== null && overrideValue !== undefined ? String(overrideValue).trim() : (scanInputValue || '').trim());
     setScanInputValue('');
     setScanMessage(null);
-    if (!num) return;
-    const studentList = users.filter(u => {
+    if (!input) return;
+    const studentsInClass = users.filter(u => {
       const role = (u.role || '').toLowerCase();
       if (role !== 'student') return false;
       const classIds = u.classIds || u.batchIds || [];
-      if (!classIds.includes(selectedClassId)) return false;
-      const cardNum = (u.qrCodeNumber || '').trim();
-      return cardNum === num;
+      return classIds.includes(selectedClassId);
     });
-    if (studentList.length === 0) {
-      setScanMessage({ type: 'error', text: 'No student in this class with this card number.' });
+    // 1) Try match by card/QR number (exact)
+    const byCard = studentsInClass.filter(u => (u.qrCodeNumber || '').trim() === input);
+    if (byCard.length === 1) {
+      const user = byCard[0];
+      setRecords(prev => prev.map(r => r.userId === user.id ? { ...r, status: 'present' } : r));
+      setScanMessage({ type: 'success', text: `Marked ${user.name || user.email} present.` });
+      setTimeout(() => setScanMessage(null), 2500);
+      return;
+    }
+    if (byCard.length > 1) {
+      setScanMessage({ type: 'error', text: 'Multiple students have this NFC card or QR number. Use student name instead.' });
       setTimeout(() => setScanMessage(null), 3000);
       return;
     }
-    const user = studentList[0];
-    setRecords(prev => prev.map(r => r.userId === user.id ? { ...r, status: 'present' } : r));
-    setScanMessage({ type: 'success', text: `Marked ${user.name || user.email} present.` });
-    setTimeout(() => setScanMessage(null), 2500);
+    // 2) Try match by student name or email (case-insensitive partial)
+    const searchLower = input.toLowerCase();
+    const byName = studentsInClass.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return name.includes(searchLower) || email.includes(searchLower);
+    });
+    if (byName.length === 1) {
+      const user = byName[0];
+      setRecords(prev => prev.map(r => r.userId === user.id ? { ...r, status: 'present' } : r));
+      setScanMessage({ type: 'success', text: `Marked ${user.name || user.email} present.` });
+      setTimeout(() => setScanMessage(null), 2500);
+      return;
+    }
+    if (byName.length > 1) {
+      const names = byName.map(u => u.name || u.email).slice(0, 3).join(', ');
+      setScanMessage({ type: 'error', text: `Multiple students match – enter more of the name. (e.g. ${names}${byName.length > 3 ? '…' : ''})` });
+      setTimeout(() => setScanMessage(null), 4000);
+      return;
+    }
+    setScanMessage({ type: 'error', text: 'No student in this class with this NFC card / QR number or name.' });
+    setTimeout(() => setScanMessage(null), 3000);
+  };
+
+  const [nfcScanning, setNfcScanning] = useState(false);
+  const supportsWebNFC = typeof window !== 'undefined' && 'NDEFReader' in window;
+
+  const handleScanNFC = async () => {
+    if (!supportsWebNFC) {
+      setScanMessage({ type: 'error', text: 'NFC is not supported in this browser (try Chrome on Android).' });
+      setTimeout(() => setScanMessage(null), 3000);
+      return;
+    }
+    try {
+      setNfcScanning(true);
+      setScanMessage(null);
+      const ndef = new window.NDEFReader();
+      await ndef.scan();
+      setScanMessage({ type: 'success', text: 'Hold student NFC card to the back of the phone…' });
+      ndef.onreadingerror = () => {
+        setScanMessage({ type: 'error', text: 'NFC read failed. Try again.' });
+        setTimeout(() => setScanMessage(null), 3000);
+      };
+      ndef.onreading = ({ message }) => {
+        if (message.records && message.records.length > 0) {
+          const record = message.records[0];
+          let text = '';
+          if (record.recordType === 'text' && record.data) {
+            const decoder = new TextDecoder(record.encoding || 'utf-8');
+            text = decoder.decode(record.data);
+          } else if (record.data) {
+            try {
+              text = new TextDecoder().decode(record.data);
+            } catch (_) {}
+          }
+          if (text && text.trim()) {
+            handleMarkByCardOrName(text.trim());
+          }
+        }
+        setNfcScanning(false);
+      };
+    } catch (err) {
+      setNfcScanning(false);
+      setScanMessage({ type: 'error', text: err.message || 'NFC scan failed. Enable NFC and try again.' });
+      setTimeout(() => setScanMessage(null), 4000);
+    }
   };
 
   const handleSave = async () => {
@@ -173,6 +250,94 @@ const OrganizationAttendance = () => {
   };
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
+
+  // Month/year of selected date (for class fee check – fee due first week of each month)
+  const selectedMonth = selectedDate ? selectedDate.slice(5, 7) : ''; // YYYY-MM-DD -> MM
+  const selectedYear = selectedDate ? selectedDate.slice(0, 4) : '';   // YYYY-MM-DD -> YYYY
+  const monthName = selectedMonth && selectedYear
+    ? new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+    : '';
+
+  const hasPaidForClassThisMonth = (userId) => {
+    if (!selectedClassId || !selectedMonth || !selectedYear) return false;
+    const user = users.find(u => u.id === userId);
+    if (user?.freeClassIds && Array.isArray(user.freeClassIds) && user.freeClassIds.includes(selectedClassId)) return true;
+    return (payments || []).some(p => {
+      if (p.userId !== userId || (p.status || '').toLowerCase() !== 'completed') return false;
+      const month = String(p.month || '').padStart(2, '0');
+      const year = String(p.year || '');
+      if (month !== selectedMonth || year !== selectedYear) return false;
+      const classMatch = p.classId === selectedClassId ||
+        (Array.isArray(p.classIds) && p.classIds.includes(selectedClassId));
+      return classMatch;
+    });
+  };
+
+  const getDefaultClassPrice = () => {
+    const course = classes.find(c => c.id === selectedClassId);
+    if (course?.price == null || course?.price === '') return '';
+    const price = course.price;
+    if (typeof price === 'number') return String(price);
+    const parsed = String(price).replace(/[^0-9.]/g, '');
+    return parsed || '';
+  };
+
+  const openQuickPay = (record) => {
+    setQuickPayRecord(record);
+    setQuickPayAmount(getDefaultClassPrice());
+    setShowQuickPayModal(true);
+  };
+
+  const loadPayments = async () => {
+    const orgId = getOrganizationId();
+    if (!orgId) return;
+    try {
+      const data = await paymentsService.getAll(2000, orgId, false);
+      setPayments(data || []);
+    } catch (err) {
+      console.error('Error loading payments:', err);
+    }
+  };
+
+  const handleQuickPaySubmit = async () => {
+    const orgId = getOrganizationId();
+    if (!orgId || !quickPayRecord || !selectedClassId || !selectedMonth || !selectedYear) return;
+    const amount = parseFloat(quickPayAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount.');
+      return;
+    }
+    try {
+      setQuickPaySaving(true);
+      setError(null);
+      await paymentsService.create({
+        userId: quickPayRecord.userId,
+        amount: amount.toFixed(2),
+        status: 'completed',
+        paymentMethod: 'Manual',
+        transactionId: `ATT-${Date.now()}`,
+        month: selectedMonth,
+        year: selectedYear,
+        notes: 'Recorded from Attendance',
+        classId: selectedClassId,
+        classIds: [selectedClassId],
+        organizationId: orgId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      await loadPayments();
+      setShowQuickPayModal(false);
+      setQuickPayRecord(null);
+      setQuickPayAmount('');
+      setSuccess(`Payment recorded for ${quickPayRecord.studentName}.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to record payment. Please try again.');
+      console.error('Error recording quick payment:', err);
+    } finally {
+      setQuickPaySaving(false);
+    }
+  };
 
   return (
     <div className="organization-attendance-container">
@@ -255,10 +420,10 @@ const OrganizationAttendance = () => {
                   <>
                     <div className="attendance-scan-section">
                       <label className="attendance-scan-label">
-                        <FaQrcode className="filter-icon" /> Scan QR or enter card number
+                        <FaQrcode className="filter-icon" /> Mark by NFC card, QR number, or student name
                       </label>
                       <p className="attendance-scan-hint">
-                        Scan the student&apos;s printed card QR, or type the card number, then mark present.
+                        Scan QR / NFC, enter NFC card or QR number, or type student name (or part of name), then mark present. Same number works for QR and NFC.
                       </p>
                       <div className="attendance-scan-row">
                         <input
@@ -266,18 +431,29 @@ const OrganizationAttendance = () => {
                           className="attendance-scan-input"
                           value={scanInputValue}
                           onChange={(e) => setScanInputValue(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMarkByCardNumber())}
-                          placeholder="Enter number from card / QR"
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMarkByCardOrName())}
+                          placeholder="NFC card or QR number or student name"
                           autoComplete="off"
                         />
                         <button
                           type="button"
                           className="attendance-scan-btn"
-                          onClick={handleMarkByCardNumber}
+                          onClick={() => handleMarkByCardOrName()}
                           disabled={!scanInputValue.trim()}
                         >
                           Mark present
                         </button>
+                        {supportsWebNFC && (
+                          <button
+                            type="button"
+                            className="attendance-scan-btn attendance-nfc-btn"
+                            onClick={handleScanNFC}
+                            disabled={nfcScanning}
+                            title="Scan student NFC card (Chrome on Android)"
+                          >
+                            {nfcScanning ? 'Scanning…' : 'Scan NFC'}
+                          </button>
+                        )}
                       </div>
                       {scanMessage && (
                         <div className={scanMessage.type === 'success' ? 'attendance-scan-msg success' : 'attendance-scan-msg error'}>
@@ -285,35 +461,63 @@ const OrganizationAttendance = () => {
                         </div>
                       )}
                     </div>
+                    {monthName && (
+                      <p className="attendance-fee-note">
+                        Class fee is due in the first week of each month. Students marked &quot;Not paid&quot; have not paid for <strong>{monthName}</strong>.
+                      </p>
+                    )}
                     <div className="attendance-table-wrapper">
                       <table className="attendance-table">
                         <thead>
                           <tr>
                             <th>#</th>
                             <th>Student Name</th>
-                            <th>Card / QR Number</th>
+                            <th>NFC card / QR number</th>
+                            <th>Fee ({monthName || '—'})</th>
                             <th>Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {records.map((r, index) => (
-                            <tr key={r.userId}>
-                              <td>{index + 1}</td>
-                              <td>{r.studentName}</td>
-                              <td>{r.qrCodeNumber || '—'}</td>
-                              <td>
-                                <select
-                                  className="status-select"
-                                  value={r.status}
-                                  onChange={(e) => handleStatusChange(r.userId, e.target.value)}
-                                >
-                                  {STATUS_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
-                              </td>
-                            </tr>
-                          ))}
+                          {records.map((r, index) => {
+                            const paid = hasPaidForClassThisMonth(r.userId);
+                            return (
+                              <tr key={r.userId} className={!paid ? 'attendance-row-unpaid' : ''}>
+                                <td>{index + 1}</td>
+                                <td>{r.studentName}</td>
+                                <td>{r.qrCodeNumber || '—'}</td>
+                                <td>
+                                  {paid ? (
+                                    <span className="attendance-fee-paid">Paid</span>
+                                  ) : (
+                                    <span className="attendance-fee-cell-unpaid">
+                                      <span className="attendance-fee-unpaid" title={`Class fee not paid for ${monthName}`}>
+                                        <FaExclamationTriangle className="attendance-fee-unpaid-icon" /> Not paid
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="attendance-quick-pay-btn"
+                                        onClick={() => openQuickPay(r)}
+                                        title="Record class fee payment"
+                                      >
+                                        <FaDollarSign /> Pay
+                                      </button>
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <select
+                                    className="status-select"
+                                    value={r.status}
+                                    onChange={(e) => handleStatusChange(r.userId, e.target.value)}
+                                  >
+                                    {STATUS_OPTIONS.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -335,6 +539,48 @@ const OrganizationAttendance = () => {
           </>
         )}
       </div>
+
+      {/* Quick Pay Modal – record class fee from attendance */}
+      {showQuickPayModal && quickPayRecord && (
+        <div className="modal-overlay" onClick={() => !quickPaySaving && setShowQuickPayModal(false)}>
+          <div className="modal-content attendance-quick-pay-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Record class fee payment</h2>
+              <button type="button" className="modal-close" onClick={() => !quickPaySaving && setShowQuickPayModal(false)} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p className="attendance-quick-pay-info">
+                <strong>Student:</strong> {quickPayRecord.studentName}
+              </p>
+              <p className="attendance-quick-pay-info">
+                <strong>Class:</strong> {selectedClass?.title || selectedClass?.name || 'Class'}
+              </p>
+              <p className="attendance-quick-pay-info">
+                <strong>Month / Year:</strong> {monthName}
+              </p>
+              <div className="form-group">
+                <label>Amount *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={quickPayAmount}
+                  onChange={e => setQuickPayAmount(e.target.value)}
+                  placeholder="Enter amount"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => !quickPaySaving && setShowQuickPayModal(false)} disabled={quickPaySaving}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={handleQuickPaySubmit} disabled={quickPaySaving || !quickPayAmount.trim()}>
+                {quickPaySaving ? <><FaSpinner className="btn-spinner" /> Recording…</> : <><FaDollarSign /> Record payment</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

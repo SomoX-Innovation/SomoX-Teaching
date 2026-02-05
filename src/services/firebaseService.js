@@ -346,7 +346,48 @@ export const usersService = {
   getByOrganization: (organizationId, limitCount = null) => {
     return getDocuments('users', [{ field: 'organizationId', operator: '==', value: organizationId }], { field: 'createdAt', direction: 'desc' }, limitCount);
   },
-  getPaginated: (pageSize = 20, lastDoc = null, filters = []) => getDocumentsPaginated('users', filters, { field: 'createdAt', direction: 'desc' }, pageSize, lastDoc)
+  getPaginated: (pageSize = 20, lastDoc = null, filters = []) => getDocumentsPaginated('users', filters, { field: 'createdAt', direction: 'desc' }, pageSize, lastDoc),
+  /**
+   * Get tutors/teachers assigned to a student based on their classes.
+   * Uses student's classIds/batchIds and courses' assignedTeachers + createdBy.
+   */
+  getTutorsForStudent: async (userId) => {
+    const userDoc = await getDocument('users', userId).catch(() => null);
+    if (!userDoc) return [];
+    const classIds = userDoc.classIds || userDoc.batchIds || [];
+    const orgId = userDoc.organizationId;
+    if (!classIds.length || !orgId) return [];
+    const courses = await getDocuments('courses', [{ field: 'organizationId', operator: '==', value: orgId }], null, 500, false);
+    const studentCourses = courses.filter(c => classIds.includes(c.id));
+    const teacherIds = new Set();
+    const tutorByCourse = [];
+    for (const course of studentCourses) {
+      const title = course.title || course.name || course.id;
+      if (course.createdBy) {
+        teacherIds.add(course.createdBy);
+        tutorByCourse.push({ teacherId: course.createdBy, courseId: course.id, courseTitle: title });
+      }
+      const assigned = course.assignedTeachers || [];
+      for (const tid of assigned) {
+        if (tid) {
+          teacherIds.add(tid);
+          tutorByCourse.push({ teacherId: tid, courseId: course.id, courseTitle: title });
+        }
+      }
+    }
+    const tutors = [];
+    for (const tid of teacherIds) {
+      const teacherDoc = await getDocument('users', tid).catch(() => null);
+      if (!teacherDoc || (teacherDoc.role || '').toLowerCase() !== 'teacher') continue;
+      const coursesForTutor = tutorByCourse.filter(t => t.teacherId === tid).map(t => t.courseTitle);
+      tutors.push({
+        id: teacherDoc.id,
+        ...teacherDoc,
+        courses: [...new Set(coursesForTutor)]
+      });
+    }
+    return tutors;
+  }
 };
 
 // Courses Service
@@ -379,6 +420,28 @@ export const coursesService = {
       filters.push({ field: 'organizationId', operator: '==', value: organizationId });
     }
     return getDocuments('courses', filters, null, limitCount);
+  }
+};
+
+// Tutes Service (book distribution tracking - per student per month, like tuition fee)
+export const tutesService = {
+  getAll: (limitCount = null, organizationId = null, classId = null, useCache = false) => {
+    const filters = organizationId ? [{ field: 'organizationId', operator: '==', value: organizationId }] : [];
+    if (classId) filters.push({ field: 'classId', operator: '==', value: classId });
+    return getDocuments('tutes', filters, null, limitCount || 500, useCache);
+  },
+  getById: (id) => getDocument('tutes', id),
+  create: (data) => {
+    clearCache('tutes');
+    return createDocument('tutes', data);
+  },
+  update: (id, data) => {
+    clearCache('tutes');
+    return updateDocument('tutes', id, data);
+  },
+  delete: (id) => {
+    clearCache('tutes');
+    return deleteDocument('tutes', id);
   }
 };
 

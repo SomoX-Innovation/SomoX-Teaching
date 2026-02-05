@@ -12,7 +12,8 @@ import {
   FaPlay,
   FaMoneyBillWave,
   FaLock,
-  FaExclamationCircle
+  FaExclamationCircle,
+  FaChalkboardTeacher
 } from 'react-icons/fa';
 import { tasksService, recordingsService, zoomSessionsService, paymentsService, usersService } from '../../services/firebaseService';
 import { useAuth } from '../../context/AuthContext';
@@ -216,6 +217,13 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Divide class tutes - separate button */}
+        <Link to="/dashboard/my-tutor" className="dashboard-divide-tutes-btn">
+          <FaChalkboardTeacher className="divide-tutes-icon" />
+          <span>Divide class tutes</span>
+          <FaArrowRight className="divide-tutes-arrow" />
+        </Link>
 
         {/* Stats Cards */}
         <div className="stats-container">

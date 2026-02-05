@@ -8,9 +8,117 @@
   border-right: 1px solid var(--sidebar-border);
   overflow-y: auto;
   overflow-x: hidden;
-  transition: all var(--transition-slow);
+  transition: width var(--transition-slow), padding var(--transition-slow);
   z-index: 40;
   box-shadow: var(--shadow-lg);
+}
+
+/* Sidebar expand/collapse toggle button */
+.sidebar-toggle {
+  position: absolute;
+  top: 1rem;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 50;
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  transition: all var(--transition-base);
+}
+
+.sidebar-toggle:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: scale(1.1);
+}
+
+.sidebar-toggle-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Collapsed sidebar */
+.sidebar.collapsed {
+  width: 72px;
+}
+
+.sidebar.collapsed .sidebar-content {
+  padding: 1rem 0.5rem;
+  align-items: center;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  right: -12px;
+}
+
+.sidebar.collapsed .logo-container {
+  padding: 0.25rem 0;
+}
+
+.sidebar.collapsed .logo-wrapper {
+  width: 40px;
+  height: 40px;
+}
+
+.sidebar.collapsed .logo-image {
+  width: 40px;
+  height: 40px;
+  max-height: 40px;
+  object-fit: contain;
+}
+
+.sidebar.collapsed .logo-glow {
+  display: none;
+}
+
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .user-name,
+.sidebar.collapsed .user-role,
+.sidebar.collapsed .user-info,
+.sidebar.collapsed .arrow-icon,
+.sidebar.collapsed .submenu-arrow,
+.sidebar.collapsed .footer-info,
+.sidebar.collapsed .nav-badge,
+.sidebar.collapsed .nav-indicator {
+  display: none !important;
+}
+
+.sidebar.collapsed .user-profile-button {
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.sidebar.collapsed .user-profile-button .avatar-container {
+  margin: 0;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.sidebar.collapsed .nav-icon-wrapper {
+  margin: 0;
+}
+
+.sidebar.collapsed .submenu {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  padding-top: 0.5rem;
+}
+
+.sidebar.collapsed .sidebar-footer .footer-text {
+  display: none;
 }
 
 .sidebar-content {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -16,10 +17,12 @@ import MonthSessionRecordings from './pages/User/MonthSessionRecordings';
 import OtherRecording from './pages/User/OtherRecording';
 import ZoomSessions from './pages/User/ZoomSessions';
 import AIAssistant from './pages/User/AIAssistant';
+import MyTutor from './pages/User/MyTutor';
 // Organization Pages (formerly Admin)
 import OrganizationDashboard from './pages/Organization/OrganizationDashboard';
 import OrganizationUsers from './pages/Organization/OrganizationUsers';
 import OrganizationCourses from './pages/Organization/OrganizationCourses';
+import OrganizationTuteDividing from './pages/Organization/OrganizationTuteDividing';
 import OrganizationAttendance from './pages/Organization/OrganizationAttendance';
 import OrganizationRecordings from './pages/Organization/OrganizationRecordings';
 import OrganizationTasks from './pages/Organization/OrganizationTasks';
@@ -52,21 +55,28 @@ import './App.css';
 function Layout({ children }) {
   const location = useLocation();
   const { isAdmin, isSuperAdmin } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isSuperAdminRoute = location.pathname.startsWith('/superadmin');
   const isAdminRoute = location.pathname.startsWith('/organization');
   const isTeacherRoute = location.pathname.startsWith('/teacher');
   const isDashboardRoute = location.pathname.startsWith('/dashboard');
   const showSidebar = isSuperAdminRoute || isAdminRoute || isTeacherRoute || isDashboardRoute;
+  const sidebarCollapsedClass = isAdminRoute && sidebarCollapsed ? ' sidebar-collapsed' : '';
 
   return (
-    <div className={showSidebar ? "app-container" : ""}>
+    <div className={showSidebar ? `app-container${sidebarCollapsedClass}` : ''}>
       {showSidebar && (
         isSuperAdminRoute ? <SuperAdminSidebar /> :
-        isAdminRoute ? <AdminSidebar /> :
+        isAdminRoute ? (
+          <AdminSidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((s) => !s)}
+          />
+        ) :
         isTeacherRoute ? <TeacherSidebar /> :
         <Sidebar />
       )}
-      <main className={showSidebar ? "main-content" : ""}>
+      <main className={showSidebar ? 'main-content' : ''}>
         {children}
       </main>
     </div>
@@ -165,6 +175,16 @@ function App() {
                 } 
               />
               
+              {/* My Tutor (Tutor dividing) */}
+              <Route 
+                path="/dashboard/my-tutor" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="student">
+                    <MyTutor />
+                  </ProtectedRoute>
+                } 
+              />
+              
               {/* Profile & Settings */}
               <Route 
                 path="/profile" 
@@ -204,6 +224,16 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={true} requireRole="admin">
                     <OrganizationCourses />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Organization Tute dividing (assign tutors to classes) - admin only */}
+              <Route 
+                path="/organization/tute-dividing" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireRole="admin">
+                    <OrganizationTuteDividing />
                   </ProtectedRoute>
                 } 
               />

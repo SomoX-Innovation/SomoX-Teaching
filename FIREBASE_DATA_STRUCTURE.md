@@ -147,7 +147,28 @@ Course information.
 
 ---
 
-### 7. `attendance` Collection
+### 7. `tutes` Collection
+Book distribution tracking (tute dividing by organization). Track whether each student received a book for a specific month — same as tuition fee tracking.
+
+**Document Structure:**
+```javascript
+{
+  userId: "user-id",            // Student ID
+  classId: "course-doc-id",     // Reference to courses collection
+  month: "01",                  // Month (01-12)
+  year: "2025",                 // Year
+  received: true,               // Boolean: true if student received book, false if not
+  organizationId: "org-id",
+  createdAt: Timestamp,
+  updatedAt: Timestamp
+}
+```
+
+**Note:** Organization admins manage under **Organization → Tute dividing**. Select class, month, year, then mark "Received" or "Not received" for each student (like tuition fee payments). One record per student per class per month.
+
+---
+
+### 8. `attendance` Collection
 Student attendance per class per date (organization-managed).
 
 **Document Structure:**
@@ -168,7 +189,7 @@ Student attendance per class per date (organization-managed).
 
 ---
 
-### 8. `payments` Collection
+### 9. `payments` Collection
 Payment transactions.
 
 **Document Structure:**
